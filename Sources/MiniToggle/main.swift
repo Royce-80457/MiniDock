@@ -1,20 +1,20 @@
 import AppKit
 import ApplicationServices
 import ServiceManagement
-import ToggleCore
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     let engine = Engine()
-    let animationSettings = SystemAnimationSettings()
     lazy var settingsWindow = SettingsWindowController(appDelegate: self)
     var item: NSStatusItem!
     let menu = NSMenu()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+        if let url = Bundle.main.url(forResource: "AppIcon", withExtension: "icns"),
+           let icon = NSImage(contentsOf: url) { NSApp.applicationIconImage = icon }
         engine.excluded = Set(UserDefaults.standard.stringArray(forKey: "excludedBundleIDs") ?? [])
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        item.button?.image = NSImage(systemSymbolName: "rectangle.compress.vertical", accessibilityDescription: "MiniToggle")
+        item.button?.image = IconArtwork.menuBarImage()
         item.menu = menu
         menu.delegate = self
         engine.changed = { [weak self] in
@@ -50,25 +50,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             engine.experimental = true
             engine.start()
         }
-    }
-    @objc func openAnimationSettings() { SystemAnimationSettings.openSettings() }
-    func setAnimation(_ style: WindowAnimationStyle) {
-        engine.invalidate("animation-setting-change")
-        animationSettings.set(style) { [weak self] result in
-            defer { self?.settingsWindow.refreshControls() }
-            switch result {
-            case .success(let applied):
-                self?.engine.record("system animation preference=\(applied.rawValue) saved and read back; Dock adoption unverified")
-                self?.settingsWindow.showAnimationResult("已保存：\(applied.title)")
-            case .failure(let error):
-                self?.engine.record("system animation change failed: \(error.localizedDescription)")
-                let alert = NSAlert()
-                alert.messageText = "窗口动画未能保存"
-                alert.informativeText = error.localizedDescription
-                alert.runModal()
-            }
-        }
-        settingsWindow.refreshControls()
     }
     @objc func requestAX() {
         _ = AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary)
