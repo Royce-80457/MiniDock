@@ -15,7 +15,6 @@ final class Engine {
     private var pending: Pending?
     private var generation = 0
     private var quietUntil = 0.0
-    private var lastAction = 0.0
     private var observers: [NSObjectProtocol] = []
     private var healthTimer: Timer?
     private let verificationQueue = DispatchQueue(label: "local.royce.MiniToggle.verification")
@@ -36,7 +35,13 @@ final class Engine {
 
     init() {
         AXUIElementSetMessagingTimeout(AX.system, 0.05)
-        for name in [NSWorkspace.didActivateApplicationNotification, NSWorkspace.activeSpaceDidChangeNotification,
+        observers.append(NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main) { [weak self] note in
+                // Activation cancels an in-progress gesture. The next click has
+                // its own down-time foreground/window checks; no fixed delay.
+                self?.invalidate(note.name.rawValue, settlingDelay: 0)
+            })
+        for name in [NSWorkspace.activeSpaceDidChangeNotification,
                      NSWorkspace.willSleepNotification, NSWorkspace.didWakeNotification] {
             observers.append(NSWorkspace.shared.notificationCenter.addObserver(forName: name, object: nil, queue: .main) {
                 [weak self] note in self?.invalidate(note.name.rawValue)
@@ -45,11 +50,12 @@ final class Engine {
         observers.append(NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification,
             object: nil, queue: .main) { [weak self] _ in self?.invalidate("display-change") })
     }
-    func invalidate(_ reason: String = "settings-change") {
+    func invalidate(_ reason: String = "settings-change", settlingDelay: Double = 0.4) {
         if pending != nil { record("cancel candidate reason=\(reason)") }
         pending = nil
         generation += 1
-        quietUntil = now + 0.4
+        // Activation must not shorten a Space/display transition's quiet time.
+        quietUntil = max(quietUntil, now + settlingDelay)
     }
     func record(_ message: String) {
         records.append(String(format: "%.3f %@", now, message))
@@ -143,9 +149,8 @@ final class Engine {
                     return
                 }
                 guard event.flags.intersection(modifiers).isEmpty else { record("skip down reason=modifier"); return }
-                guard clickCount == 1 else { record("skip down reason=multi-click count=\(clickCount)"); return }
-                guard now >= quietUntil else { record("skip down reason=activation-or-space-settling"); return }
-                guard now - lastAction > 0.5 else { record("skip down reason=post-minimize-cooldown"); return }
+                guard clickCount >= 1 else { record("skip down reason=invalid-click-count count=\(clickCount)"); return }
+                guard now >= quietUntil else { record("skip down reason=transition-settling"); return }
                 guard let id = target.bundleIdentifier else {
                     record("skip missing-bundle-id pid=\(target.processIdentifier)")
                     return
@@ -211,7 +216,6 @@ final class Engine {
                 guard AXIsProcessTrusted() else { stop("辅助功能权限已撤销；已暂停"); return }
                 let error = AXUIElementSetAttributeValue(current, kAXMinimizedAttribute as CFString, kCFBooleanTrue)
                 guard error == .success else { stop("最小化失败 \(error.rawValue)；已暂停"); return }
-                lastAction = now
                 record("minimize-request accepted pid=\(candidate.pid); not proof of final Dock state")
                 let verification = UUID()
                 verificationID = verification
