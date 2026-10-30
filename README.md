@@ -24,7 +24,7 @@ cd MiniToggle
 open build/MiniToggle.app
 ```
 
-`build.sh` 使用标准工程的 Release 配置构建并导出 app，`test.sh` 使用同一工程执行 Debug XCTest。脚本导出 app 前请退出正在使用的旧实例。菜单栏图标为窗口上方的一枚向下箭头，支持系统深浅色模板；应用图标采用同一标记和蓝色圆角底，自身默认不显示 Dock 图标。
+`build.sh` 使用标准工程的 Release 配置构建并导出 app，`test.sh` 使用同一工程执行 Debug XCTest。脚本导出 app 前请退出正在使用的旧实例。图标为一枚向下箭头与 Dock 形长条圆角矩形：应用图标固定采用 A 版实心长条和蓝色圆角底；菜单栏启用时实心，未启用、手动暂停或异常停止时空心，支持系统深浅色模板。自身默认不显示 Dock 图标。
 
 图标资源位于 `Resources/Assets.xcassets/AppIcon.appiconset`，菜单栏与应用图标共用 `IconArtwork.swift` 的矢量路径。修改后可在项目根目录运行 `swiftc Sources/MiniToggle/IconArtwork.swift scripts/render-icons.swift -o build/render-icons`，再执行 `./build/render-icons`，重新生成全部 macOS 图标尺寸。
 

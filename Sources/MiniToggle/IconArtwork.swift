@@ -1,9 +1,9 @@
 import AppKit
 
-/// One downward arrow above a window. Shared geometry keeps the app icon and
+/// One downward arrow above a Dock-shaped bar. Shared geometry keeps the app icon and
 /// the monochrome menu-bar template consistent; there is no lower arrow.
 enum IconArtwork {
-    static func drawMark(origin: NSPoint, scale: CGFloat, color: NSColor) {
+    static func drawMark(origin: NSPoint, scale: CGFloat, color: NSColor, solid: Bool = true) {
         NSGraphicsContext.saveGraphicsState()
         defer { NSGraphicsContext.restoreGraphicsState() }
         let transform = NSAffineTransform()
@@ -11,37 +11,35 @@ enum IconArtwork {
         transform.scale(by: scale)
         transform.concat()
         color.setStroke()
-        let frame = NSBezierPath()
-        frame.move(to: NSPoint(x: 6, y: 12))
-        frame.line(to: NSPoint(x: 4.5, y: 12))
-        frame.curve(to: NSPoint(x: 3, y: 10.5), controlPoint1: NSPoint(x: 3.67, y: 12), controlPoint2: NSPoint(x: 3, y: 11.33))
-        frame.line(to: NSPoint(x: 3, y: 4.5))
-        frame.curve(to: NSPoint(x: 4.5, y: 3), controlPoint1: NSPoint(x: 3, y: 3.67), controlPoint2: NSPoint(x: 3.67, y: 3))
-        frame.line(to: NSPoint(x: 15.5, y: 3))
-        frame.curve(to: NSPoint(x: 17, y: 4.5), controlPoint1: NSPoint(x: 16.33, y: 3), controlPoint2: NSPoint(x: 17, y: 3.67))
-        frame.line(to: NSPoint(x: 17, y: 10.5))
-        frame.curve(to: NSPoint(x: 15.5, y: 12), controlPoint1: NSPoint(x: 17, y: 11.33), controlPoint2: NSPoint(x: 16.33, y: 12))
-        frame.line(to: NSPoint(x: 14, y: 12))
+        color.setFill()
+        let bounds = NSRect(x: 1.5, y: 3, width: 17, height: 4)
+        if solid {
+            NSBezierPath(roundedRect: bounds, xRadius: 1.6, yRadius: 1.6).fill()
+        } else {
+            let bar = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.65, dy: 0.65), xRadius: 0.95, yRadius: 0.95)
+            bar.lineWidth = 1.3
+            bar.stroke()
+        }
         let arrow = NSBezierPath()
         arrow.move(to: NSPoint(x: 10, y: 18))
-        arrow.line(to: NSPoint(x: 10, y: 10))
-        arrow.move(to: NSPoint(x: 7.2, y: 12.8))
-        arrow.line(to: NSPoint(x: 10, y: 10))
-        arrow.line(to: NSPoint(x: 12.8, y: 12.8))
-        for path in [frame, arrow] {
+        arrow.line(to: NSPoint(x: 10, y: 9.5))
+        arrow.move(to: NSPoint(x: 7.2, y: 12.3))
+        arrow.line(to: NSPoint(x: 10, y: 9.5))
+        arrow.line(to: NSPoint(x: 12.8, y: 12.3))
+        for path in [arrow] {
             path.lineWidth = 1.6
             path.lineCapStyle = .round
             path.lineJoinStyle = .round
             path.stroke()
         }
     }
-    static func menuBarImage() -> NSImage {
+    static func menuBarImage(enabled: Bool) -> NSImage {
         let image = NSImage(size: NSSize(width: 20, height: 20), flipped: false) { _ in
-            drawMark(origin: .zero, scale: 1, color: .black)
+            drawMark(origin: .zero, scale: 1, color: .black, solid: enabled)
             return true
         }
         image.isTemplate = true
-        image.accessibilityDescription = "MiniToggle"
+        image.accessibilityDescription = enabled ? "MiniToggle enabled" : "MiniToggle paused"
         return image
     }
     static func drawAppIcon() {

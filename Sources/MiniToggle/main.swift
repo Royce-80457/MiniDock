@@ -7,6 +7,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     lazy var settingsWindow = SettingsWindowController(appDelegate: self)
     var item: NSStatusItem!
     let menu = NSMenu()
+    private lazy var enabledIcon = IconArtwork.menuBarImage(enabled: true)
+    private lazy var pausedIcon = IconArtwork.menuBarImage(enabled: false)
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -14,16 +16,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
            let icon = NSImage(contentsOf: url) { NSApp.applicationIconImage = icon }
         engine.excluded = Set(UserDefaults.standard.stringArray(forKey: "excludedBundleIDs") ?? [])
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        item.button?.image = IconArtwork.menuBarImage()
+        updateStatusItem()
         item.menu = menu
         menu.delegate = self
         engine.changed = { [weak self] in
             guard let self else { return }
-            self.item.button?.toolTip = "MiniToggle: \(self.engine.status)"
+            self.updateStatusItem()
             self.settingsWindow.updateEngineStatus()
         }
         // No launch-time permission requests or automatic enhancement.
         if CommandLine.arguments.contains("--settings") { showSettings() }
+    }
+    private func updateStatusItem() {
+        guard let button = item?.button else { return }
+        let image = engine.running && engine.experimental ? enabledIcon : pausedIcon
+        if button.image !== image { button.image = image }
+        button.toolTip = "MiniToggle: \(engine.status)"
     }
     func menuWillOpen(_ menu: NSMenu) {
         engine.checkHealth()

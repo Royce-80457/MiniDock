@@ -28,10 +28,13 @@ import AppKit
         let json: [String: Any] = ["images": images, "info": ["author": "xcode", "version": 1]]
         try JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted, .sortedKeys])
             .write(to: directory.appendingPathComponent("Contents.json"))
-        // Magnified template preview for inspecting stroke geometry.
-        try png(256) {
-            NSColor.white.setFill(); NSRect(x: 0, y: 0, width: 1024, height: 1024).fill()
-            IconArtwork.drawMark(origin: NSPoint(x: 112, y: 112), scale: 40, color: .black)
-        }.write(to: root.appendingPathComponent("build/menu-icon-preview.png"))
+        // Inspect both menu-bar states without changing the running app.
+        for enabled in [true, false] {
+            let name = enabled ? "enabled" : "paused"
+            try png(256) {
+                NSColor.white.setFill(); NSRect(x: 0, y: 0, width: 1024, height: 1024).fill()
+                IconArtwork.drawMark(origin: NSPoint(x: 112, y: 112), scale: 40, color: .black, solid: enabled)
+            }.write(to: root.appendingPathComponent("build/menu-icon-\(name).png"))
+        }
     }
 }
