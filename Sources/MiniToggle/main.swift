@@ -7,7 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     lazy var settingsWindow = SettingsWindowController(appDelegate: self)
     var item: NSStatusItem!
     let menu = NSMenu()
-    private let enableSwitch = NSSwitch()
+    private let enableSwitch = BlueSwitch()
     private var statusEntry: NSMenuItem?
     private var statusTitle: String {
         "MiniToggle \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev") · \(engine.status)"
@@ -109,8 +109,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
     @objc func openLogin() { SMAppService.openSystemSettingsLoginItems() }
-    func toggleExclusion(_ id: String) {
-        if engine.excluded.contains(id) { engine.excluded.remove(id) } else { engine.excluded.insert(id) }
+    func addExclusions(_ ids: Set<String>) {
+        engine.excluded.formUnion(ids)
+        UserDefaults.standard.set(engine.excluded.sorted(), forKey: "excludedBundleIDs")
+    }
+    func removeExclusions(_ ids: Set<String>) {
+        engine.excluded.subtract(ids)
         UserDefaults.standard.set(engine.excluded.sorted(), forKey: "excludedBundleIDs")
     }
     @objc func copyLogs() {
