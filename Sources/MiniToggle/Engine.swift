@@ -37,7 +37,7 @@ final class Engine {
     var experimental = false {
         didSet {
             invalidate()
-            if running { status = experimental ? "实验运行中" : "观察中"; changed?() }
+            if running { status = experimental ? "运行中" : "观察中"; changed?() }
         }
     }
     var excluded: Set<String> = [] { didSet { invalidate() } }
@@ -101,7 +101,7 @@ final class Engine {
         guard let source else { stop("无法创建事件源"); return }
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         running = true
-        status = experimental ? "实验运行中" : "观察中"
+        status = experimental ? "运行中" : "观察中"
         invalidate()
         healthTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
             self?.checkHealth()

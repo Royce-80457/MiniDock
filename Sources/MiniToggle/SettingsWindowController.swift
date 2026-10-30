@@ -14,7 +14,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSTa
 
     init(appDelegate: AppDelegate) {
         self.appDelegate = appDelegate
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 600, height: 640),
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 540, height: 440),
                               styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
         window.title = "MiniToggle 设置"
         window.isReleasedWhenClosed = false
@@ -25,38 +25,40 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSTa
         tabs.translatesAutoresizingMaskIntoConstraints = false
         window.contentView!.addSubview(tabs)
         NSLayoutConstraint.activate([
-            tabs.leadingAnchor.constraint(equalTo: window.contentView!.leadingAnchor, constant: 20),
-            tabs.trailingAnchor.constraint(equalTo: window.contentView!.trailingAnchor, constant: -20),
-            tabs.topAnchor.constraint(equalTo: window.contentView!.topAnchor, constant: 20),
-            tabs.bottomAnchor.constraint(equalTo: window.contentView!.bottomAnchor, constant: -20)
+            tabs.leadingAnchor.constraint(equalTo: window.contentView!.leadingAnchor, constant: 12),
+            tabs.trailingAnchor.constraint(equalTo: window.contentView!.trailingAnchor, constant: -12),
+            tabs.topAnchor.constraint(equalTo: window.contentView!.topAnchor, constant: 12),
+            tabs.bottomAnchor.constraint(equalTo: window.contentView!.bottomAnchor, constant: -12)
         ])
         let general = page("通用", in: tabs)
-        engineStatus.preferredMaxLayoutWidth = 480
-        loginStatus.preferredMaxLayoutWidth = 480
-        general.addArrangedSubview(heading("运行状态"))
-        general.addArrangedSubview(engineStatus)
-        general.addArrangedSubview(note("从菜单栏启用或暂停。当前最小化功能仍为实验性，无法确认窗口状态时会停止增强。"))
-        general.addArrangedSubview(heading("启动"))
+        engineStatus.preferredMaxLayoutWidth = 420
+        loginStatus.preferredMaxLayoutWidth = 420
+        engineStatus.widthAnchor.constraint(lessThanOrEqualToConstant: 350).isActive = true
+        general.addArrangedSubview(row([heading("运行状态"), engineStatus]))
         login.target = self; login.action = #selector(toggleLogin)
-        general.addArrangedSubview(login)
+        general.addArrangedSubview(row([login, button("登录项设置…", #selector(openLogin))]))
+        loginStatus.textColor = .secondaryLabelColor
         general.addArrangedSubview(loginStatus)
-        general.addArrangedSubview(button("打开登录项设置…", #selector(openLogin)))
-
-        let permissions = page("权限", in: tabs)
-        permissions.addArrangedSubview(heading("辅助功能"))
-        permissions.addArrangedSubview(permissionStatus)
-        permissions.addArrangedSubview(note("用于识别 Dock 应用图标、读取活动窗口并将其最小化。授权后，从菜单栏启用 MiniToggle。"))
-        permissions.addArrangedSubview(button("申请辅助功能权限…", #selector(requestAX)))
-        permissions.addArrangedSubview(button("打开辅助功能设置…", #selector(openAX)))
-        permissions.addArrangedSubview(heading("监听故障排查"))
-        permissions.addArrangedSubview(note("仅在无法创建鼠标监听、系统要求输入监控权限时使用；正常运行无需额外申请。"))
-        permissions.addArrangedSubview(button("申请输入监控…", #selector(requestInput)))
-        permissions.addArrangedSubview(button("刷新权限状态", #selector(refresh)))
+        general.addArrangedSubview(separator())
+        general.addArrangedSubview(row([heading("辅助功能"), permissionStatus]))
+        general.addArrangedSubview(note("用于识别 Dock 图标、读取活动窗口并执行最小化。授权后从菜单栏启用。"))
+        general.addArrangedSubview(row([
+            button("申请权限…", #selector(requestAX)),
+            button("打开系统设置…", #selector(openAX)),
+            button("刷新状态", #selector(refresh))
+        ]))
+        general.addArrangedSubview(row([
+            button("申请输入监控…", #selector(requestInput)),
+            note("仅监听创建失败时使用")
+        ]))
+        general.addArrangedSubview(separator())
+        general.addArrangedSubview(row([heading("日志"), button("清空日志", #selector(clearLogs))]))
+        general.addArrangedSubview(note("最多保留本次运行的 200 条日志；从菜单栏复制。"))
 
         let exclusions = page("排除应用", in: tabs)
         exclusions.addArrangedSubview(note("勾选后，MiniToggle 不处理该应用的 Dock 点击。列表包含运行中的应用及已保存的排除项。"))
         let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("app"))
-        column.title = "应用"; column.width = 490
+        column.title = "应用"; column.width = 460
         table.addTableColumn(column)
         table.headerView = nil; table.rowHeight = 34
         table.dataSource = self; table.delegate = self
@@ -64,7 +66,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSTa
         let scroll = NSScrollView()
         scroll.documentView = table; scroll.hasVerticalScroller = true
         exclusions.addArrangedSubview(scroll)
-        scroll.heightAnchor.constraint(equalToConstant: 380).isActive = true
+        scroll.heightAnchor.constraint(equalToConstant: 240).isActive = true
         scroll.widthAnchor.constraint(equalTo: exclusions.widthAnchor).isActive = true
         exclusions.addArrangedSubview(button("刷新应用列表", #selector(refreshApps)))
         for name in [NSWorkspace.didLaunchApplicationNotification, NSWorkspace.didTerminateApplicationNotification] {
@@ -99,17 +101,30 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSTa
         item.label = title
         let container = NSView()
         let stack = NSStackView()
-        stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = 10
+        stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = 8
         stack.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(stack)
         NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 20),
-            stack.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -20),
-            stack.topAnchor.constraint(equalTo: container.topAnchor, constant: 16),
-            stack.bottomAnchor.constraint(lessThanOrEqualTo: container.bottomAnchor, constant: -16)
+            stack.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 12),
+            stack.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -12),
+            stack.topAnchor.constraint(equalTo: container.topAnchor, constant: 12),
+            stack.bottomAnchor.constraint(lessThanOrEqualTo: container.bottomAnchor, constant: -12)
         ])
         item.view = container; tabs.addTabViewItem(item)
         return stack
+    }
+    private func row(_ views: [NSView]) -> NSStackView {
+        let stack = NSStackView(views: views)
+        stack.orientation = .horizontal
+        stack.alignment = .centerY
+        stack.spacing = 8
+        return stack
+    }
+    private func separator() -> NSBox {
+        let box = NSBox()
+        box.boxType = .separator
+        box.widthAnchor.constraint(equalToConstant: 470).isActive = true
+        return box
     }
     private func heading(_ text: String) -> NSTextField {
         let label = NSTextField(labelWithString: text)
@@ -119,7 +134,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSTa
     private func note(_ text: String) -> NSTextField {
         let label = NSTextField(wrappingLabelWithString: text)
         label.textColor = .secondaryLabelColor
-        label.preferredMaxLayoutWidth = 480
+        label.preferredMaxLayoutWidth = 420
         return label
     }
     private func button(_ title: String, _ action: Selector) -> NSButton {
@@ -149,6 +164,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSTa
         guard let id = sender.identifier?.rawValue else { return }
         appDelegate?.toggleExclusion(id); reloadApps()
     }
+    @objc private func clearLogs() { appDelegate?.clearLogs() }
     @objc private func refresh() { refreshControls() }
     @objc private func refreshApps() { reloadApps() }
     @objc private func toggleLogin() { appDelegate?.toggleLogin(); refreshControls() }

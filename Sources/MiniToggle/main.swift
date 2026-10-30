@@ -7,6 +7,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     lazy var settingsWindow = SettingsWindowController(appDelegate: self)
     var item: NSStatusItem!
     let menu = NSMenu()
+    private let enableSwitch = NSSwitch()
+    private var statusEntry: NSMenuItem?
+    private var statusTitle: String {
+        "MiniToggle \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev") · \(engine.status)"
+    }
     private lazy var enabledIcon = IconArtwork.menuBarImage(enabled: true)
     private lazy var pausedIcon = IconArtwork.menuBarImage(enabled: false)
 
@@ -17,6 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         engine.excluded = Set(UserDefaults.standard.stringArray(forKey: "excludedBundleIDs") ?? [])
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         updateStatusItem()
+        menu.autoenablesItems = false
         item.menu = menu
         menu.delegate = self
         engine.changed = { [weak self] in
@@ -32,22 +38,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let image = engine.running && engine.experimental ? enabledIcon : pausedIcon
         if button.image !== image { button.image = image }
         button.toolTip = "MiniToggle: \(engine.status)"
+        enableSwitch.state = engine.running ? .on : .off
+        statusEntry?.title = statusTitle
     }
     func menuWillOpen(_ menu: NSMenu) {
         engine.checkHealth()
         menu.removeAllItems()
-        add("MiniToggle \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev") · \(engine.status)", nil)
-        add(engine.running ? "暂停 MiniToggle" : "启用 MiniToggle / 重试", #selector(toggle))
+        statusEntry = add(statusTitle, nil)
+        let control = NSMenuItem()
+        let row = NSView(frame: NSRect(x: 0, y: 0, width: 280, height: 38))
+        row.autoresizingMask = [.width]
+        let label = NSTextField(labelWithString: "启用")
+        label.font = .systemFont(ofSize: 14, weight: .semibold)
+        label.translatesAutoresizingMaskIntoConstraints = false
+        enableSwitch.removeFromSuperview()
+        enableSwitch.target = self
+        enableSwitch.action = #selector(toggle)
+        enableSwitch.state = engine.running ? .on : .off
+        enableSwitch.setAccessibilityLabel("启用或暂停")
+        enableSwitch.translatesAutoresizingMaskIntoConstraints = false
+        row.addSubview(label); row.addSubview(enableSwitch)
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: row.leadingAnchor, constant: 14),
+            label.centerYAnchor.constraint(equalTo: row.centerYAnchor),
+            enableSwitch.trailingAnchor.constraint(equalTo: row.trailingAnchor, constant: -14),
+            enableSwitch.centerYAnchor.constraint(equalTo: row.centerYAnchor)
+        ])
+        control.view = row
+        menu.addItem(control)
         menu.addItem(.separator())
         add("设置…", #selector(showSettings))
         menu.addItem(.separator())
-        add("复制本次诊断（最多 200 条）", #selector(copyDiagnostics))
-        add("清空诊断", #selector(clearDiagnostics))
+        add("复制日志", #selector(copyLogs))
         add("退出", #selector(quit))
     }
     @discardableResult func add(_ title: String, _ action: Selector?) -> NSMenuItem {
         let value = NSMenuItem(title: title, action: action, keyEquivalent: "")
         value.target = self
+        value.isEnabled = action != nil
         menu.addItem(value)
         return value
     }
@@ -85,11 +113,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if engine.excluded.contains(id) { engine.excluded.remove(id) } else { engine.excluded.insert(id) }
         UserDefaults.standard.set(engine.excluded.sorted(), forKey: "excludedBundleIDs")
     }
-    @objc func copyDiagnostics() {
+    @objc func copyLogs() {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(engine.records.joined(separator: "\n"), forType: .string)
     }
-    @objc func clearDiagnostics() { engine.clearRecords() }
+    @objc func clearLogs() { engine.clearRecords() }
     @objc func quit() { engine.stop(); NSApp.terminate(nil) }
 }
 
