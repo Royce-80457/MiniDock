@@ -1,0 +1,11 @@
+.build/
+build/
+.swiftpm/
+.DS_Store
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xcresult/
+Configs/Signing.local.xcconfig
+# Full local debugging history; the shareable summary is committed instead.
+docs/validation.md

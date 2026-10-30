@@ -1,0 +1,13 @@
+name: Build and Test
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build app without signing
+        run: xcodebuild -project MiniToggle.xcodeproj -scheme MiniToggle -configuration Release -destination 'platform=macOS' -derivedDataPath build/ci CODE_SIGNING_ALLOWED=NO build
+      - name: Run core tests
+        run: xcodebuild -project MiniToggle.xcodeproj -scheme MiniToggle -configuration Debug -destination 'platform=macOS' -derivedDataPath build/ci CODE_SIGNING_ALLOWED=NO test
