@@ -156,17 +156,27 @@ final class Engine {
                     return
                 }
                 guard !excluded.contains(id) else { record("skip excluded pid=\(target.processIdentifier)"); return }
+                // A minimized/restoring app may have no focused window. Let
+                // Dock handle that click before querying global AX focus,
+                // which can time out during the same animation.
+                phase = "down.window"
+                let window = try AX.focusedWindow(front.processIdentifier)
+                guard let window else {
+                    readFailures.reset()
+                    record("skip no-focused-window pid=\(target.processIdentifier)")
+                    return
+                }
                 phase = "down.focus"
                 let focus = try AX.focusEvidence(target.processIdentifier)
                 guard focus.allows(target: target.processIdentifier, workspace: front.processIdentifier) else {
+                    readFailures.reset()
                     record("skip down reason=focus-unconfirmed workspace=\(front.processIdentifier) \(focus.details)")
                     return
                 }
                 if focus.systemPID == nil { record("focus confirmed via AXFrontmost pid=\(target.processIdentifier) \(focus.details)") }
-                let window = try AX.focusedWindow(front.processIdentifier)
-                guard let window else { record("skip no-focused-window pid=\(target.processIdentifier)"); return }
                 phase = "down.eligibility"
                 let eligibility = try AX.eligibility(window)
+                readFailures.reset()
                 let elapsed = now - began
                 guard eligibility.allowed, elapsed < 0.12 else {
                     record("skip down pid=\(target.processIdentifier) reasons=\(eligibility.reasons.joined(separator: ",")) budgetExceeded=\(elapsed >= 0.12) elapsedMs=\(Int(elapsed * 1000)) \(eligibility.details)")
@@ -236,7 +246,7 @@ final class Engine {
             }
             if let failure = error as? AXFailure, failure.code == .cannotComplete {
                 if !readFailures.shouldPause(at: now) {
-                    record("skip transient AX communication failure; click passed through")
+                    record("skip transient AX communication failure; click passed through; pause requires >=3 failures spanning >=2s")
                     return
                 }
                 stop("辅助功能持续通信失败；已暂停")
