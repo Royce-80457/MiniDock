@@ -67,3 +67,5 @@ Apple 文档列出 assistive app 的 Accessibility 使用与 App Sandbox 不兼�
 Apple 的[桌面与程序坞设置](https://support.apple.com/en-euro/guide/mac-help/mchlp1119/27/mac/27)提供最小化视觉效果选择。本机实际界面只有神奇/缩放；用户选择接受这两种效果的全局切换。没有找到公开的跨应用关闭 Dock 最小化/恢复全部动画的接口。[NSWindow.animationBehavior](https://developer.apple.com/documentation/appkit/nswindow/animationbehavior-swift.property)控制 NSWindow 的 orderFront/orderOut 自动动画，不能用它设置其他进程的窗口或冒充 Dock 动画开关。
 
 0.1.11 通过公开 AXUIElementPerformAction 操作系统设置的原生控件，并读取其值验证；不读写未公开 Dock 偏好，不重启 Dock。定位依赖当前设置界面暴露的 AXIdentifier 与中文/英文菜单项，属于需要跨版本验证的 UI 自动化。最多约八秒的有限就绪检查仅在用户选择菜单后发生，失败时提示手动选择；无常驻设置轮询、无额外权限。切换视觉效果是否改善原型可靠性仍须实际测试，不能据此取消持续未最小化时的保护。
+
+0.1.13 移除此 UI 自动化：用户报告冷启动切换失败，并明确要求静默的下拉选择框。Apple 的[Dock 配置文档](https://developer.apple.com/documentation/devicemanagement/dock)正式列出 mineffect 的 genie/scale 值，可通过公开 [CFPreferencesSetValue](https://developer.apple.com/documentation/corefoundation/cfpreferencessetvalue(_:_:_:_:_:)) 写入当前用户相应偏好，再同步并读取有效值。这里不安装管理描述文件，也不声称设备管理文档保证普通应用写入后的即时刷新。当前方案不重启 Dock、不调用私有刷新接口、不修改 Dock 程序；是否立即改变真实动画需独立实测，不能把偏好回读当作实际效果已通过。

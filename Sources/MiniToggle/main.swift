@@ -51,8 +51,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             engine.start()
         }
     }
-    @objc func useGenie() { setAnimation(.genie) }
-    @objc func useScale() { setAnimation(.scale) }
     @objc func openAnimationSettings() { SystemAnimationSettings.openSettings() }
     func setAnimation(_ style: WindowAnimationStyle) {
         engine.invalidate("animation-setting-change")
@@ -60,12 +58,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             defer { self?.settingsWindow.refreshControls() }
             switch result {
             case .success(let applied):
-                self?.engine.record("system animation=\(applied.rawValue) verified via System Settings")
-                self?.settingsWindow.showAnimationResult("已切换为\(applied.title)")
+                self?.engine.record("system animation preference=\(applied.rawValue) saved and read back; Dock adoption unverified")
+                self?.settingsWindow.showAnimationResult("已保存：\(applied.title)")
             case .failure(let error):
                 self?.engine.record("system animation change failed: \(error.localizedDescription)")
                 let alert = NSAlert()
-                alert.messageText = "窗口动画未确认切换"
+                alert.messageText = "窗口动画未能保存"
                 alert.informativeText = error.localizedDescription
                 alert.runModal()
             }

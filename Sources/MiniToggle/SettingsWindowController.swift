@@ -9,7 +9,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSTa
     private let loginStatus = NSTextField(wrappingLabelWithString: "")
     private let animationResult = NSTextField(labelWithString: "")
     private let login = NSButton(checkboxWithTitle: "登录时启动 MiniToggle", target: nil, action: nil)
-    private var animationButtons: [NSButton] = []
+    private let animationChoice = NSPopUpButton(frame: .zero, pullsDown: false)
     private let table = NSTableView()
     private var apps: [(name: String, id: String)] = []
     private var observers: [NSObjectProtocol] = []
@@ -44,13 +44,13 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSTa
         general.addArrangedSubview(loginStatus)
         general.addArrangedSubview(button("打开登录项设置…", #selector(openLogin)))
         general.addArrangedSubview(heading("窗口动画（所有应用）"))
-        general.addArrangedSubview(note("切换系统全局的最小化与恢复效果，缩放效果仍有动画。选择后会打开系统设置完成切换。"))
-        let genie = button("使用神奇效果", #selector(useGenie))
-        let scale = button("使用缩放效果", #selector(useScale))
-        animationButtons = [genie, scale]
-        let effects = NSStackView(views: [genie, scale])
-        effects.spacing = 8
-        general.addArrangedSubview(effects)
+        general.addArrangedSubview(note("选择后在后台保存系统全局偏好，缩放效果仍有动画。不会自动打开系统设置或重启 Dock。"))
+        animationChoice.addItems(withTitles: ["选择效果…", "神奇效果", "缩放效果"])
+        animationChoice.item(at: 0)?.isEnabled = false
+        animationChoice.target = self
+        animationChoice.action = #selector(changeAnimation)
+        animationChoice.widthAnchor.constraint(equalToConstant: 180).isActive = true
+        general.addArrangedSubview(animationChoice)
         animationResult.textColor = .secondaryLabelColor
         general.addArrangedSubview(animationResult)
         general.addArrangedSubview(button("打开系统动画设置…", #selector(openAnimation)))
@@ -106,8 +106,16 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSTa
         loginStatus.stringValue = status == .requiresApproval
             ? "等待系统批准，请前往登录项设置完成。"
             : "登录后默认暂停，由你从菜单栏启用。"
-        animationButtons.forEach { $0.isEnabled = appDelegate?.animationSettings.busy != true }
-        if appDelegate?.animationSettings.busy == true { animationResult.stringValue = "正在切换，请在系统设置中等待完成…" }
+        let busy = appDelegate?.animationSettings.busy == true
+        animationChoice.isEnabled = !busy
+        if busy { animationResult.stringValue = "正在保存…" }
+        else {
+            switch appDelegate?.animationSettings.currentStyle() {
+            case .genie: animationChoice.selectItem(at: 1)
+            case .scale: animationChoice.selectItem(at: 2)
+            case nil: animationChoice.selectItem(at: 0)
+            }
+        }
     }
     func showAnimationResult(_ text: String) { animationResult.stringValue = text }
     private func page(_ title: String, in tabs: NSTabView) -> NSStackView {
@@ -169,8 +177,13 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSTa
     @objc private func refreshApps() { reloadApps() }
     @objc private func toggleLogin() { appDelegate?.toggleLogin(); refreshControls() }
     @objc private func openLogin() { appDelegate?.openLogin() }
-    @objc private func useGenie() { appDelegate?.useGenie() }
-    @objc private func useScale() { appDelegate?.useScale() }
+    @objc private func changeAnimation() {
+        switch animationChoice.indexOfSelectedItem {
+        case 1: appDelegate?.setAnimation(.genie)
+        case 2: appDelegate?.setAnimation(.scale)
+        default: break
+        }
+    }
     @objc private func openAnimation() { appDelegate?.openAnimationSettings() }
     @objc private func requestAX() { appDelegate?.requestAX(); refreshControls() }
     @objc private func openAX() { appDelegate?.openAX() }
