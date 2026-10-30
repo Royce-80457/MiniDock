@@ -37,7 +37,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSTa
         engineStatus.preferredMaxLayoutWidth = 350
         engineStatus.widthAnchor.constraint(lessThanOrEqualToConstant: 350).isActive = true
         general.addArrangedSubview(row([heading("运行状态"), engineStatus,
-            help("从菜单栏启用或暂停。无法确认窗口状态时会停止增强，可在菜单中查看原因并重试。")]))
+            help("从菜单栏启用或暂停。无法确认窗口状态时会停止增强，可复制日志查看原因并重试。")]))
         login.target = self; login.action = #selector(toggleLogin)
         general.addArrangedSubview(row([login, help("登录后仍默认暂停，由你从菜单栏启用。"),
             button("登录项设置…", #selector(openLogin))]))
@@ -128,7 +128,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSTa
         window.setFrameOrigin(NSPoint(x: window.frame.minX, y: top - window.frame.height))
     }
     func updateEngineStatus() {
-        let text = appDelegate?.engine.status ?? "已暂停"
+        let text = appDelegate?.engine.running == true ? "运行中" : "已暂停"
         guard engineStatus.stringValue != text else { return }
         engineStatus.stringValue = text
         if window?.isVisible == true { resizeWindow() }
@@ -164,11 +164,10 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSTa
         let box = NSBox(); box.boxType = .separator; box.widthAnchor.constraint(equalToConstant: 470).isActive = true; return box
     }
     private func help(_ text: String) -> NSView {
-        let image = NSImageView(image: NSImage(systemSymbolName: "questionmark.square", accessibilityDescription: text)!)
-        image.toolTip = text
-        image.widthAnchor.constraint(equalToConstant: 16).isActive = true
-        image.heightAnchor.constraint(equalToConstant: 16).isActive = true
-        return image
+        let help = HoverHelpButton(text)
+        help.widthAnchor.constraint(equalToConstant: 20).isActive = true
+        help.heightAnchor.constraint(equalToConstant: 20).isActive = true
+        return help
     }
     private func button(_ title: String, _ action: Selector) -> NSButton { NSButton(title: title, target: self, action: action) }
     private func reloadApps() {

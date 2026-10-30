@@ -9,9 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     let menu = NSMenu()
     private let enableSwitch = BlueSwitch()
     private var statusEntry: NSMenuItem?
-    private var statusTitle: String {
-        "MiniToggle \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev") · \(engine.status)"
-    }
+    private var statusTitle: String { engine.running ? "运行中" : "已暂停" }
     private lazy var enabledIcon = IconArtwork.menuBarImage(enabled: true)
     private lazy var pausedIcon = IconArtwork.menuBarImage(enabled: false)
 
@@ -23,6 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         updateStatusItem()
         menu.autoenablesItems = false
+        menu.font = .menuFont(ofSize: 0)
         item.menu = menu
         menu.delegate = self
         engine.changed = { [weak self] in
@@ -37,7 +36,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard let button = item?.button else { return }
         let image = engine.running && engine.experimental ? enabledIcon : pausedIcon
         if button.image !== image { button.image = image }
-        button.toolTip = "MiniToggle: \(engine.status)"
+        button.toolTip = "MiniToggle: \(statusTitle)"
         enableSwitch.state = engine.running ? .on : .off
         statusEntry?.title = statusTitle
     }
@@ -46,10 +45,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.removeAllItems()
         statusEntry = add(statusTitle, nil)
         let control = NSMenuItem()
-        let row = NSView(frame: NSRect(x: 0, y: 0, width: 280, height: 38))
+        let row = NSView(frame: NSRect(x: 0, y: 0, width: 140, height: 24))
         row.autoresizingMask = [.width]
         let label = NSTextField(labelWithString: "启用")
-        label.font = .systemFont(ofSize: 14, weight: .semibold)
+        label.font = menu.font
         label.translatesAutoresizingMaskIntoConstraints = false
         enableSwitch.removeFromSuperview()
         enableSwitch.target = self
@@ -59,6 +58,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         enableSwitch.translatesAutoresizingMaskIntoConstraints = false
         row.addSubview(label); row.addSubview(enableSwitch)
         NSLayoutConstraint.activate([
+            enableSwitch.widthAnchor.constraint(equalToConstant: 34),
+            enableSwitch.heightAnchor.constraint(equalToConstant: 20),
             label.leadingAnchor.constraint(equalTo: row.leadingAnchor, constant: 14),
             label.centerYAnchor.constraint(equalTo: row.centerYAnchor),
             enableSwitch.trailingAnchor.constraint(equalTo: row.trailingAnchor, constant: -14),
@@ -67,8 +68,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         control.view = row
         menu.addItem(control)
         menu.addItem(.separator())
-        add("设置…", #selector(showSettings))
-        menu.addItem(.separator())
+        add("设置", #selector(showSettings))
         add("复制日志", #selector(copyLogs))
         add("退出", #selector(quit))
     }
