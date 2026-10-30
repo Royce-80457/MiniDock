@@ -3,6 +3,7 @@ import XCTest
 
 final class InteractionPolicyTests: XCTestCase {
     func testNewInputCancelsDeferredClickEvenInsideHandoffInterval() {
+        XCTAssertTrue(DeferredClickPolicy.accepts(elapsed: 0, unchangedInput: true, stable: true))
         XCTAssertTrue(DeferredClickPolicy.accepts(elapsed: 0.05, unchangedInput: true, stable: true))
         XCTAssertFalse(DeferredClickPolicy.accepts(elapsed: 0.05, unchangedInput: false, stable: true))
     }

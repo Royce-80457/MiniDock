@@ -110,6 +110,28 @@ enum AX {
         return owner == pid ? window : nil
     }
 
+    struct AppWindowSnapshot {
+        let frontmost: Bool?
+        let window: AXUIElement?
+        func allows(target: pid_t, workspace: pid_t?) -> Bool {
+            FocusPolicy.allowsAppSnapshot(target: target, workspace: workspace, appFrontmost: frontmost)
+        }
+    }
+    /// One application request for both active state and focused window. A batch
+    /// reduces messaging; it is not a system-wide atomic focus transaction.
+    static func appWindowSnapshot(_ pid: pid_t) throws -> AppWindowSnapshot {
+        let values = try readMany(AXUIElementCreateApplication(pid),
+            [kAXFrontmostAttribute, kAXFocusedWindowAttribute])
+        let window = asElement(values[kAXFocusedWindowAttribute])
+        if let window {
+            var owner: pid_t = 0
+            let error = AXUIElementGetPid(window, &owner)
+            guard error == .success else { throw AXFailure(error, operation: "getSnapshotWindowPID") }
+            guard owner == pid else { throw AXFailure(.invalidUIElement, operation: "snapshotWindowOwnerMismatch") }
+        }
+        return AppWindowSnapshot(frontmost: values[kAXFrontmostAttribute] as? Bool, window: window)
+    }
+
     /// Hit test in CGEvent's global, top-left coordinate space. Never flip via NSScreen.main.
     static func dockApplication(at point: CGPoint) throws -> NSRunningApplication? {
         var hit: AXUIElement?

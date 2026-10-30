@@ -174,24 +174,22 @@ final class Engine {
                     return
                 }
                 guard !excluded.contains(id) else { record("skip excluded pid=\(target.processIdentifier)"); return }
-                // A minimized/restoring app may have no focused window. Let
-                // Dock handle that click before querying global AX focus,
-                // which can time out during the same animation.
-                phase = "down.window"
-                let window = try AX.focusedWindow(front.processIdentifier)
-                guard let window else {
+                // Query the target app once. Global AXFocusedApplication often
+                // times out or is absent even when this app confirms active.
+                phase = "down.snapshot"
+                let snapshotBegan = now
+                let snapshot = try AX.appWindowSnapshot(target.processIdentifier)
+                record("app-snapshot phase=down pid=\(target.processIdentifier) elapsedMs=\(Int((now - snapshotBegan) * 1000)) frontmost=\(String(describing: snapshot.frontmost)) window=\(snapshot.window != nil)")
+                guard snapshot.allows(target: target.processIdentifier, workspace: front.processIdentifier) else {
+                    readFailures.reset()
+                    record("skip down reason=app-frontmost-unconfirmed")
+                    return
+                }
+                guard let window = snapshot.window else {
                     readFailures.reset()
                     record("skip no-focused-window pid=\(target.processIdentifier)")
                     return
                 }
-                phase = "down.focus"
-                let focus = try AX.focusEvidence(target.processIdentifier)
-                guard focus.allows(target: target.processIdentifier, workspace: front.processIdentifier) else {
-                    readFailures.reset()
-                    record("skip down reason=focus-unconfirmed workspace=\(front.processIdentifier) \(focus.details)")
-                    return
-                }
-                if focus.systemPID == nil { record("focus confirmed via AXFrontmost pid=\(target.processIdentifier) \(focus.details)") }
                 phase = "down.eligibility"
                 let eligibility = try AX.eligibility(window)
                 readFailures.reset()
@@ -256,8 +254,8 @@ final class Engine {
     private func scheduleMinimize(_ candidate: Pending, point: CGPoint, releasedAt: Double, input: InputStamp) {
         let id = UUID()
         deferredActionID = id
-        record("defer minimize pid=\(candidate.pid) handoffMs=50")
-        DispatchQueue.main.asyncAfter(deadline: .now() + DeferredClickPolicy.handoffDelay) { [weak self] in
+        record("defer minimize pid=\(candidate.pid) handoff=next-main-turn")
+        DispatchQueue.main.async { [weak self] in
             guard let self, self.running, self.deferredActionID == id else { return }
             defer { if self.deferredActionID == id { self.deferredActionID = nil } }
             let began = self.now
@@ -278,14 +276,16 @@ final class Engine {
                     self.record("skip deferred reason=target-or-workspace-changed")
                     return
                 }
-                phase = "deferred.focus"
-                let focus = try AX.focusEvidence(candidate.pid)
-                guard focus.allows(target: candidate.pid,
+                phase = "deferred.snapshot"
+                let snapshotBegan = self.now
+                let snapshot = try AX.appWindowSnapshot(candidate.pid)
+                self.record("app-snapshot phase=deferred pid=\(candidate.pid) elapsedMs=\(Int((self.now - snapshotBegan) * 1000)) frontmost=\(String(describing: snapshot.frontmost)) window=\(snapshot.window != nil)")
+                guard snapshot.allows(target: candidate.pid,
                     workspace: NSWorkspace.shared.frontmostApplication?.processIdentifier) else {
-                    self.record("skip deferred reason=focus-unconfirmed \(focus.details)")
+                    self.record("skip deferred reason=app-frontmost-unconfirmed")
                     return
                 }
-                guard let current = try AX.focusedWindow(candidate.pid), CFEqual(current, candidate.window) else {
+                guard let current = snapshot.window, CFEqual(current, candidate.window) else {
                     self.record("skip deferred reason=focused-window-changed")
                     return
                 }

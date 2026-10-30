@@ -9,10 +9,10 @@
 | 问题 | 公开方案 | 限制 / 验证点 |
 | --- | --- | --- |
 | 用户点了哪个 Dock app | CGEvent 被动监听 down/up；AXUIElementCopyElementAtPosition 命中，要求所属进程为 com.apple.dock、subrole 为 kAXApplicationDockItemSubrole；以 kAXURLAttribute 对应唯一正在运行的 app bundle URL | 本机已授权并多次命中 TextEdit 等目标；公开常量不保证 Dock 各版本均返回这些属性 |
-| 点击前前台 app / 活动窗口 | down 回调先保存 NSWorkspace.frontmostApplication，命中对应 Dock 图标后读取系统 AXFocusedApplication，返回 PID 时要求一致；系统级焦点缺失时须目标 app 的 AXFrontmost=true；读取 AXFocusedWindow 并验证所属 PID 后保存 | 不覆盖已知的焦点冲突，也不将读取异常当作缺失。回调并不是 OS 保证的“点击前原子快照”；应用/焦点可以并发变化 |
+| 点击前前台 app / 活动窗口 | 0.1.10 在 down 回调先保存 NSWorkspace.frontmostApplication，命中对应 Dock 图标后批量读取目标 app 的 AXFrontmost 与 AXFocusedWindow，必须 app 明确 active 且窗口所属 PID 一致；执行前重新确认 | 不将读取异常当作可操作证据；交互路径不再查询系统 AXFocusedApplication。批量读取与回调均非 OS 保证的“点击前原子快照”，应用/焦点可并发变化 |
 | 区分后台激活 / 前台再次点击 | 只允许 down 时命中目标已等于保存的前台 PID；up 再验证相同窗口/目标和状态，激活/Space 通知使候选失效 | 通知本身也异步；不能用激活后查询代替 down 快照；必须实测时序 |
 | 最小化 | 普通窗口，AXModal=false、AXMinimized=false、按钮 enabled、AXMinimized 可写后 SetAttributeValue(true) | 依赖目标 app 的 AX 实现；只处理保存的一个窗口；不使用 hide/AppleScript |
-| 是否需要拦截 | 用 listenOnly tap 原样放行；0.1.9 在 up 后延后 50ms，再验证原窗口并发一次 AX 请求，约 250ms 后启动独立队列的有限回读 | false 或 cannotComplete 共用三次只读预算，仍未确认最小化且无新输入则暂停；不重发最小化，不能靠任意延时宣称修复 Dock 竞争 |
+| 是否需要拦截 | 用 listenOnly tap 原样放行；0.1.10 在 up 回调后下一轮主队列验证原窗口并发一次 AX 请求，约 250ms 后启动独立队列的有限回读 | false 或 cannotComplete 共用三次只读预算，仍未确认最小化且无新输入则暂停；不重发最小化，调度顺序不保证 Dock 已完成处理 |
 
 ## 路线比较与推荐
 
@@ -57,3 +57,7 @@ Apple 文档列出 assistive app 的 Accessibility 使用与 App Sandbox 不兼�
 ## 0.1.9 实验补充
 
 0.1.8 的真实日志出现写请求成功、回读 false、用户确认窗口仍显示，快速模式未满足可靠性目标。用户选择继续公开 API 实验。现尝试将写入放到 mouse-up 回调之后，50ms 后重新验证原窗口，并使用 [CGEventSource.counterForEventType](https://developer.apple.com/documentation/coregraphics/cgeventsource/counterforeventtype(_:eventtype:)) 的会话事件计数取消已过时的操作/回读；只比较计数，不读取按键内容。新输入到来或 200ms 内无法执行即取消，最多一次写入。计数查询与 AX 写入仍非原子化，50ms 也没有系统层面的完成顺序保证，不能凭此宣称竞争已修复。false 的有限只读确认用于区分过渡状态与持续未确认，不用于掩盖重复写入。
+
+## 0.1.10 实验补充
+
+0.1.9 的约 150–200ms 连点日志仍出现大量目标 AXFocusedWindow 超时和全局 AXFocusedApplication 超时，未达到跟手目标。只读 audit 实测静止 ChatGPT 的应用批量前台/窗口查询不足 1ms，但窗口 AXFocused=false，因此没有用窗口缓存替代实时焦点。现取消 50ms 固定延后，并改用 [AXFrontmost](https://developer.apple.com/documentation/applicationservices/kaxfrontmostattribute) 与 [AXFocusedWindow](https://developer.apple.com/documentation/applicationservices/kaxfocusedwindowattribute) 的应用批量快照；由 NSWorkspace 与目标 app 的肯定证据共同确认，窗口 PID 和同一窗口检查保留。此实验减少额外等待与全局焦点查询，不保证动画期间仍能取得可靠状态，也不保证 Dock 竞争消失。

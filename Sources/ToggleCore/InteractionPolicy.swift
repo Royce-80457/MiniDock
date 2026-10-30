@@ -1,6 +1,5 @@
 /// Experimental handoff after the native mouse-up; never run an old click late.
 public enum DeferredClickPolicy {
-    public static let handoffDelay = 0.05
     public static func accepts(elapsed: Double, unchangedInput: Bool, stable: Bool) -> Bool {
         elapsed >= 0 && elapsed <= 0.2 && unchangedInput && stable
     }
