@@ -12,7 +12,7 @@
 | 点击前前台 app / 活动窗口 | down 回调先保存 NSWorkspace.frontmostApplication，命中对应 Dock 图标后读取系统 AXFocusedApplication，返回 PID 时要求一致；系统级焦点缺失时须目标 app 的 AXFrontmost=true；读取 AXFocusedWindow 并验证所属 PID 后保存 | 不覆盖已知的焦点冲突，也不将读取异常当作缺失。回调并不是 OS 保证的“点击前原子快照”；应用/焦点可以并发变化 |
 | 区分后台激活 / 前台再次点击 | 只允许 down 时命中目标已等于保存的前台 PID；up 再验证相同窗口/目标和状态，激活/Space 通知使候选失效 | 通知本身也异步；不能用激活后查询代替 down 快照；必须实测时序 |
 | 最小化 | 普通窗口，AXModal=false、AXMinimized=false、按钮 enabled、AXMinimized 可写后 SetAttributeValue(true) | 依赖目标 app 的 AX 实现；只处理保存的一个窗口；不使用 hide/AppleScript |
-| 是否需要拦截 | 首先用 listenOnly tap 原样放行，在 up 时发 AX 请求，约 250ms 后启动有限回读；0.1.2 将回读放在独立队列，仅对通信错误有限重试 | 若实际回读为 false 且无后续用户点击，仍暂停；重试只读、不重发最小化，不能靠任意延时宣称修复 Dock 竞争 |
+| 是否需要拦截 | 用 listenOnly tap 原样放行；0.1.9 在 up 后延后 50ms，再验证原窗口并发一次 AX 请求，约 250ms 后启动独立队列的有限回读 | false 或 cannotComplete 共用三次只读预算，仍未确认最小化且无新输入则暂停；不重发最小化，不能靠任意延时宣称修复 Dock 竞争 |
 
 ## 路线比较与推荐
 
@@ -26,7 +26,7 @@
 
 AXIsProcessTrusted / WithOptions 检查和由用户主动触发授权提示。辅助功能用于读取 Dock/窗口并控制最小化，是必需权限。CGRequestListenEventAccess 仅在 tap 无法建立时作为用户主动排障入口；不申请屏幕录制或 Apple Events 自动化权限。不需 root。
 
-最低部署 macOS 13，主要由 SMAppService 登录项 API 决定。当前构建仅为本机 arm64，不是 universal；macOS 13–26 / Intel 均需另行构建及验证。避免使用 HID tap，采用用户 session 的 listenOnly tap。API 本身公开，不表示 Dock 辅助功能树稳定。
+最低部署 macOS 13，主要由 SMAppService 登录项 API 决定。标准 Xcode 工程已生成 arm64 + x86_64 universal；macOS 13–26 / Intel 真机运行仍待验证。避免使用 HID tap，采用用户 session 的 listenOnly tap。API 本身公开，不表示 Dock 辅助功能树稳定。
 
 Apple 文档列出 assistive app 的 Accessibility 使用与 App Sandbox 不兼容，Mac App Store 要求沙盒。因此本方案以站外 Developer ID 签名、公证分发为目标，不承诺上架 Mac App Store。本机现已改用 Apple Development 签名以稳定开发授权身份，这不等于已签 Developer ID、已公证或通过 Gatekeeper 分发验证。
 
@@ -53,3 +53,7 @@ Apple 文档列出 assistive app 的 Accessibility 使用与 App Sandbox 不兼�
 - [NSScreen.visibleFrame](https://developer.apple.com/documentation/appkit/nsscreen/visibleframe) 与 [frame](https://developer.apple.com/documentation/appkit/nsscreen/frame)：可用工作区与包含菜单栏/Dock 的完整屏幕不同；普通占满工作区不应仅因贴顶就判为全屏。
 
 另核对本机 macOS 27 SDK 的 HIServices/Headers/AXAttributeConstants.h、AXRoleConstants.h 和 CoreGraphics/Headers/CGEvent.h、CGEventTypes.h：Dock subrole、URL、FocusedWindow、Modal、Minimized、MinimizeButton 均有公共常量；未找到通用 AXFullScreen 属性常量，所以未使用该字符串。
+
+## 0.1.9 实验补充
+
+0.1.8 的真实日志出现写请求成功、回读 false、用户确认窗口仍显示，快速模式未满足可靠性目标。用户选择继续公开 API 实验。现尝试将写入放到 mouse-up 回调之后，50ms 后重新验证原窗口，并使用 [CGEventSource.counterForEventType](https://developer.apple.com/documentation/coregraphics/cgeventsource/counterforeventtype(_:eventtype:)) 的会话事件计数取消已过时的操作/回读；只比较计数，不读取按键内容。新输入到来或 200ms 内无法执行即取消，最多一次写入。计数查询与 AX 写入仍非原子化，50ms 也没有系统层面的完成顺序保证，不能凭此宣称竞争已修复。false 的有限只读确认用于区分过渡状态与持续未确认，不用于掩盖重复写入。

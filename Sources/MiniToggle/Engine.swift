@@ -10,6 +10,20 @@ final class Engine {
         let timestamp: UInt64
         let generation: Int
     }
+    /// Counts only, never key codes or event contents. Unlike the tap callback,
+    /// these counters can also notice input waiting while AX is being queried.
+    private struct InputStamp: Equatable {
+        let counts: [UInt32]
+        static func capture() -> InputStamp {
+            let types: [CGEventType] = [.leftMouseDown, .leftMouseUp, .rightMouseDown,
+                .otherMouseDown, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged,
+                .flagsChanged, .keyDown, .scrollWheel]
+            return InputStamp(counts: types.map {
+                CGEventSource.counterForEventType(.combinedSessionState, eventType: $0)
+            })
+        }
+    }
+    private var deferredActionID: UUID?
     private var tap: CFMachPort?
     private var source: CFRunLoopSource?
     private var pending: Pending?
@@ -53,6 +67,8 @@ final class Engine {
     func invalidate(_ reason: String = "settings-change", settlingDelay: Double = 0.4) {
         if pending != nil { record("cancel candidate reason=\(reason)") }
         pending = nil
+        cancelDeferred("state-change: \(reason)")
+        verificationID = nil
         generation += 1
         // Activation must not shorten a Space/display transition's quiet time.
         quietUntil = max(quietUntil, now + settlingDelay)
@@ -94,6 +110,7 @@ final class Engine {
     }
     func stop(_ reason: String = "已暂停") {
         pending = nil
+        deferredActionID = nil
         verificationID = nil
         running = false
         healthTimer?.invalidate()
@@ -117,6 +134,7 @@ final class Engine {
             return
         }
         guard running else { return }
+        cancelDeferred("new-input type=\(type.rawValue)")
         guard AXIsProcessTrusted() else { stop("辅助功能权限已撤销；已暂停"); return }
         let began = now
         defer {
@@ -199,69 +217,118 @@ final class Engine {
                     record("skip up reason=gesture durationMs=\(Int(duration * 1000)) distance=\(distance) clickCount=\(event.getIntegerValueField(.mouseEventClickState)) modified=\(!event.flags.intersection(modifiers).isEmpty) stable=\(generation == candidate.generation && now >= quietUntil)")
                     return
                 }
-                guard let target = try AX.dockApplication(at: event.location), target.processIdentifier == candidate.pid,
-                    NSWorkspace.shared.frontmostApplication?.processIdentifier == candidate.pid else {
-                    record("skip up reason=target-or-workspace-changed")
-                    return
-                }
-                let focus = try AX.focusEvidence(candidate.pid)
-                guard focus.allows(target: candidate.pid, workspace: NSWorkspace.shared.frontmostApplication?.processIdentifier) else {
-                    record("skip up reason=focus-unconfirmed \(focus.details)")
-                    return
-                }
-                guard
-                    let current = try AX.focusedWindow(candidate.pid), CFEqual(current, candidate.window) else {
-                    record("skip changed gesture/window/app/space")
-                    return
-                }
-                phase = "up.eligibility"
-                let eligibility = try AX.eligibility(current)
-                let elapsed = now - began
-                guard eligibility.allowed, elapsed < 0.12 else {
-                    record("skip up pid=\(candidate.pid) reasons=\(eligibility.reasons.joined(separator: ",")) budgetExceeded=\(elapsed >= 0.12) elapsedMs=\(Int(elapsed * 1000)) \(eligibility.details)")
-                    return
-                }
-                readFailures.reset()
-                guard experimental else { record("would-minimize pid=\(candidate.pid) (observe only)"); return }
-                guard AXIsProcessTrusted() else { stop("辅助功能权限已撤销；已暂停"); return }
-                let error = AXUIElementSetAttributeValue(current, kAXMinimizedAttribute as CFString, kCFBooleanTrue)
-                guard error == .success else { stop("最小化失败 \(error.rawValue)；已暂停"); return }
-                record("minimize-request accepted pid=\(candidate.pid); not proof of final Dock state")
-                let verification = UUID()
-                verificationID = verification
-                scheduleReadback(current, id: verification, attempt: 1, actionTime: now)
+                scheduleMinimize(candidate, point: event.location, releasedAt: began, input: InputStamp.capture())
             default:
                 if pending != nil { record("cancel candidate reason=input-event type=\(type.rawValue)") }
                 pending = nil // Any drag, right/other click, or modifier transition cancels.
             }
         } catch {
-            pending = nil
-            record("AX read failure phase=\(phase) \(error)")
-            guard AXIsProcessTrusted() else { stop("辅助功能权限已撤销；已暂停"); return }
-            if let failure = error as? AXFailure, failure.code == .invalidUIElement {
-                // A closed/replaced window is no longer a candidate. Never retry
-                // this click against a newly focused window.
-                record("skip stale AX element; click passed through")
+            handleReadFailure(error, phase: phase)
+        }
+    }
+
+    private func handleReadFailure(_ error: Error, phase: String) {
+        pending = nil
+        record("AX read failure phase=\(phase) \(error)")
+        guard AXIsProcessTrusted() else { stop("辅助功能权限已撤销；已暂停"); return }
+        if let failure = error as? AXFailure, failure.code == .invalidUIElement {
+            // A closed/replaced window is no longer a candidate. Never retry
+            // this click against a newly focused window.
+            record("skip stale AX element; click passed through")
+            return
+        }
+        if let failure = error as? AXFailure, failure.code == .cannotComplete {
+            if !readFailures.shouldPause(at: now) {
+                record("skip transient AX communication failure; click passed through; pause requires >=3 failures spanning >=2s")
                 return
             }
-            if let failure = error as? AXFailure, failure.code == .cannotComplete {
-                if !readFailures.shouldPause(at: now) {
-                    record("skip transient AX communication failure; click passed through; pause requires >=3 failures spanning >=2s")
+            stop("辅助功能持续通信失败；已暂停")
+            return
+        }
+        stop("辅助功能读取失败 \(error)；已暂停")
+    }
+
+    private func cancelDeferred(_ reason: String) {
+        if deferredActionID != nil { record("cancel deferred minimize reason=\(reason)") }
+        deferredActionID = nil
+    }
+
+    private func scheduleMinimize(_ candidate: Pending, point: CGPoint, releasedAt: Double, input: InputStamp) {
+        let id = UUID()
+        deferredActionID = id
+        record("defer minimize pid=\(candidate.pid) handoffMs=50")
+        DispatchQueue.main.asyncAfter(deadline: .now() + DeferredClickPolicy.handoffDelay) { [weak self] in
+            guard let self, self.running, self.deferredActionID == id else { return }
+            defer { if self.deferredActionID == id { self.deferredActionID = nil } }
+            let began = self.now
+            func stillValid() -> Bool {
+                DeferredClickPolicy.accepts(elapsed: self.now - releasedAt,
+                    unchangedInput: input == InputStamp.capture(),
+                    stable: self.deferredActionID == id && self.generation == candidate.generation
+                        && self.now >= self.quietUntil)
+            }
+            guard stillValid() else { self.record("skip deferred reason=new-input-state-or-expired"); return }
+            self.checkHealth()
+            guard self.running else { return }
+            var phase = "deferred.target"
+            do {
+                guard let target = try AX.dockApplication(at: point), target.processIdentifier == candidate.pid,
+                      let bundleID = target.bundleIdentifier, !self.excluded.contains(bundleID),
+                      NSWorkspace.shared.frontmostApplication?.processIdentifier == candidate.pid else {
+                    self.record("skip deferred reason=target-or-workspace-changed")
                     return
                 }
-                stop("辅助功能持续通信失败；已暂停")
-                return
+                phase = "deferred.focus"
+                let focus = try AX.focusEvidence(candidate.pid)
+                guard focus.allows(target: candidate.pid,
+                    workspace: NSWorkspace.shared.frontmostApplication?.processIdentifier) else {
+                    self.record("skip deferred reason=focus-unconfirmed \(focus.details)")
+                    return
+                }
+                guard let current = try AX.focusedWindow(candidate.pid), CFEqual(current, candidate.window) else {
+                    self.record("skip deferred reason=focused-window-changed")
+                    return
+                }
+                phase = "deferred.eligibility"
+                let eligibility = try AX.eligibility(current)
+                let elapsed = self.now - began
+                guard eligibility.allowed, elapsed < 0.12 else {
+                    self.record("skip deferred pid=\(candidate.pid) reasons=\(eligibility.reasons.joined(separator: ",")) budgetExceeded=\(elapsed >= 0.12) elapsedMs=\(Int(elapsed * 1000)) \(eligibility.details)")
+                    return
+                }
+                self.readFailures.reset()
+                // Recheck after synchronous AX queries: newer input may already
+                // exist in WindowServer before the tap can deliver its callback.
+                guard stillValid(), NSWorkspace.shared.frontmostApplication?.processIdentifier == candidate.pid else {
+                    self.record("skip deferred reason=new-input-state-or-expired-after-query")
+                    return
+                }
+                guard self.experimental else { self.record("would-minimize pid=\(candidate.pid) (observe only)"); return }
+                guard AXIsProcessTrusted() else { self.stop("辅助功能权限已撤销；已暂停"); return }
+                let error = AXUIElementSetAttributeValue(current, kAXMinimizedAttribute as CFString, kCFBooleanTrue)
+                guard error == .success else { self.stop("最小化失败 \(error.rawValue)；已暂停"); return }
+                self.record("minimize-request accepted pid=\(candidate.pid) handoffElapsedMs=\(Int((self.now - releasedAt) * 1000)); not proof of final Dock state")
+                let verification = UUID()
+                self.verificationID = verification
+                self.scheduleReadback(current, id: verification, attempt: 1, actionTime: self.now, input: input)
+            } catch {
+                self.handleReadFailure(error, phase: phase)
             }
-            stop("辅助功能读取失败 \(error)；已暂停")
         }
     }
 
     /// At most three reads after one write. Never re-minimize to mask a restore.
-    /// Only cannotComplete (communication failure/timeout) is retried. AX objects
+    /// False may be transitional; confirm it within the same finite read budget.
+    /// Only false and cannotComplete are retried. AX objects
     /// that become invalid are not replaced with a different application window.
-    private func scheduleReadback(_ window: AXUIElement, id: UUID, attempt: Int, actionTime: Double) {
+    private func scheduleReadback(_ window: AXUIElement, id: UUID, attempt: Int, actionTime: Double, input: InputStamp) {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
             guard let self, self.running, self.verificationID == id else { return }
+            guard input == InputStamp.capture() else {
+                self.verificationID = nil
+                self.record("readback cancelled by newer input counter; earlier final state unknown")
+                return
+            }
             guard AXIsProcessTrusted() else { self.stop("辅助功能权限已撤销；已暂停"); return }
             self.verificationQueue.async {
                 let timeoutError = AXUIElementSetMessagingTimeout(window, 0.1)
@@ -275,21 +342,38 @@ final class Engine {
                 AXUIElementSetMessagingTimeout(window, 0)
                 DispatchQueue.main.async {
                     guard self.running, self.verificationID == id else { return }
+                    guard input == InputStamp.capture() else {
+                        self.verificationID = nil
+                        self.record("readback result discarded after newer input; earlier final state unknown")
+                        return
+                    }
                     guard AXIsProcessTrusted() else { self.stop("辅助功能权限已撤销；已暂停"); return }
                     let elapsed = Int((self.now - actionTime) * 1000)
+                    let decision: MinimizeReadbackPolicy.Decision
+                    let pauseReason: String
                     switch result {
                     case .success(let minimized):
-                        self.verificationID = nil
                         self.record("readback attempt=\(attempt) elapsedMs=\(elapsed) minimized=\(String(describing: minimized))")
-                        if minimized != true { self.stop("检测到恢复竞争或最小化状态未知；已暂停") }
+                        let observation: MinimizeReadbackPolicy.Observation = minimized == true
+                            ? .minimized : (minimized == false ? .notMinimized : .unknown)
+                        decision = MinimizeReadbackPolicy.decide(observation, attempt: attempt)
+                        pauseReason = minimized == false
+                            ? "三次读取后仍未确认最小化：可能存在 Dock 竞争或应用未执行；已暂停"
+                            : "最小化状态未知；已暂停"
                     case .failure(let error):
                         self.record("readback failure attempt=\(attempt) elapsedMs=\(elapsed) error=\(error)")
-                        if let failure = error as? AXFailure,
-                           failure.code == .cannotComplete, attempt < 3 {
-                            self.scheduleReadback(window, id: id, attempt: attempt + 1, actionTime: actionTime)
-                        } else {
-                            self.stop("回读失败 \(error)；已暂停")
-                        }
+                        let retryable = (error as? AXFailure)?.code == .cannotComplete
+                        decision = MinimizeReadbackPolicy.decide(retryable ? .communicationFailure : .fatalFailure, attempt: attempt)
+                        pauseReason = "回读失败 \(error)；已暂停"
+                    }
+                    switch decision {
+                    case .confirmed:
+                        self.verificationID = nil
+                    case .retryRead:
+                        self.scheduleReadback(window, id: id, attempt: attempt + 1, actionTime: actionTime, input: input)
+                    case .pause:
+                        self.verificationID = nil
+                        self.stop(pauseReason)
                     }
                 }
             }
