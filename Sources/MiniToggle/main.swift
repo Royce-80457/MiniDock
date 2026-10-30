@@ -1,9 +1,11 @@
 import AppKit
 import ApplicationServices
 import ServiceManagement
+import ToggleCore
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     let engine = Engine()
+    let animationSettings = SystemAnimationSettings()
     var item: NSStatusItem!
     let menu = NSMenu()
 
@@ -24,6 +26,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         add(engine.running ? "暂停" : "启用观察 / 重试", #selector(toggle))
         let experimental = add("实验：再次点击最小化", #selector(experiment))
         experimental.state = engine.experimental ? .on : .off
+        let animation = add("窗口动画（所有应用）", nil)
+        let animationMenu = NSMenu()
+        for (title, action) in [("使用神奇效果", #selector(useGenie)), ("使用缩放效果", #selector(useScale))] {
+            let entry = NSMenuItem(title: title, action: action, keyEquivalent: "")
+            entry.target = self
+            entry.isEnabled = !animationSettings.busy
+            animationMenu.addItem(entry)
+        }
+        animationMenu.autoenablesItems = false
+        animationMenu.addItem(.separator())
+        let openAnimation = NSMenuItem(title: "打开系统动画设置…", action: #selector(openAnimationSettings), keyEquivalent: "")
+        openAnimation.target = self
+        animationMenu.addItem(openAnimation)
+        animation.submenu = animationMenu
         menu.addItem(.separator())
         add("辅助功能：\(AXIsProcessTrusted() ? "已授权" : "未授权")", nil)
         add("申请辅助功能权限…", #selector(requestAX))
@@ -64,6 +80,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         submenu.addItem(entry)
     }
     @objc func toggle() { if engine.running { engine.stop() } else { engine.start() } }
+    @objc func useGenie() { setAnimation(.genie) }
+    @objc func useScale() { setAnimation(.scale) }
+    @objc func openAnimationSettings() { SystemAnimationSettings.openSettings() }
+    func setAnimation(_ style: WindowAnimationStyle) {
+        engine.invalidate("animation-setting-change")
+        animationSettings.set(style) { [weak self] result in
+            switch result {
+            case .success(let applied):
+                self?.engine.record("system animation=\(applied.rawValue) verified via System Settings")
+            case .failure(let error):
+                self?.engine.record("system animation change failed: \(error.localizedDescription)")
+                let alert = NSAlert()
+                alert.messageText = "窗口动画未确认切换"
+                alert.informativeText = error.localizedDescription
+                alert.runModal()
+            }
+        }
+    }
     @objc func experiment() {
         if !engine.experimental {
             let alert = NSAlert()
