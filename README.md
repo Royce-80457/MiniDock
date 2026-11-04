@@ -1,6 +1,12 @@
-# MiniToggle（交互验证原型）
+# MiniToggle 1.0
 
-Swift / AppKit 菜单栏工具，用公开的 Quartz 鼠标事件监听和 Accessibility API，实验性地为前台应用 Dock 图标添加再次点击最小化。**目前不是通过交互验收的成品。默认暂停，菜单栏一个按钮直接启用监听与最小化；不跨重启自动启用。**
+Swift / AppKit 菜单栏工具，用公开的 Quartz 鼠标事件监听和 Accessibility API，为前台应用 Dock 图标添加再次点击最小化。默认暂停，菜单栏一个开关启用或暂停；不跨重启自动启用。已知部分应用/快速操作仍可能无法最小化并触发保护暂停，详见验证记录。
+
+## 安装
+
+从 [GitHub Release](https://github.com/Royce-80457/MiniToggle/releases/tag/v1.0) 下载 `MiniToggle-1.0-universal.dmg`，打开后将 MiniToggle 拖入 Applications。退出旧实例，再从“应用程序”启动，打开设置授予辅助功能权限，最后打开菜单“启用”开关。
+
+本次安装包使用 Apple Development 开发签名，尚无 Developer ID 分发签名及 Apple 公证，Gatekeeper 可能阻止启动。仅信任来源时按 [Apple 官方说明](https://support.apple.com/102445)在隐私与安全性中手动允许；不要关闭系统安全机制。也可自行从源码构建。详见 [安装说明](docs/INSTALL.zh-CN.md)。
 
 ## 构建与运行
 
@@ -82,3 +88,7 @@ open -n -g -W --stdout "$PWD/build/window-audit.txt" --stderr "$PWD/build/window
 设置说明集中在每项旁的圆形问号中，悬停立即显示浮层、移开关闭，也可点击查看；窗口按内容与列表行数自适应高度。菜单开关开启时使用固定蓝色轨道、白色圆钮，关闭时为灰色；颜色不修改系统强调色，键盘及辅助功能继续由原生按钮处理。
 
 0.1.18 菜单收窄为约 140pt 的内容宽度，采用统一菜单字号与紧凑行距；“设置”不带省略号，与“复制日志”之间没有分割线。界面状态仅显示“运行中”或“已暂停”，异常细节仍完整记录在日志中。
+
+## 制作安装镜像
+
+Release 构建后执行 `./scripts/package.sh`，输出 DMG 和 `SHA256SUMS.txt` 到 `build/release/`。镜像包含签名 app、Applications 快捷入口及安装说明；脚本不会替你生成 Developer ID 证书、公证或上传。已有同名产物时停止，避免覆盖发布文件。
