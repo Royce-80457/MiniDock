@@ -10,10 +10,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let enableSwitch = BlueSwitch()
     private var statusEntry: NSMenuItem?
     private var statusTitle: String { engine.running ? "运行中" : "已暂停" }
+    var versionDescription: String {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "开发版"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "未知"
+        return "\(version) (\(build))"
+    }
+    var enableAtLaunch: Bool {
+        get { UserDefaults.standard.bool(forKey: "enableAtLaunch") }
+        set { UserDefaults.standard.set(newValue, forKey: "enableAtLaunch") }
+    }
     private lazy var enabledIcon = IconArtwork.menuBarImage(enabled: true)
     private lazy var pausedIcon = IconArtwork.menuBarImage(enabled: false)
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        UserDefaults.standard.register(defaults: ["enableAtLaunch": true])
         NSApp.setActivationPolicy(.accessory)
         if let url = Bundle.main.url(forResource: "AppIcon", withExtension: "icns"),
            let icon = NSImage(contentsOf: url) { NSApp.applicationIconImage = icon }
@@ -29,14 +39,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self.updateStatusItem()
             self.settingsWindow.updateEngineStatus()
         }
-        // No launch-time permission requests or automatic enhancement.
+        if enableAtLaunch { enable() }
         if CommandLine.arguments.contains("--settings") { showSettings() }
     }
     private func updateStatusItem() {
         guard let button = item?.button else { return }
         let image = engine.running && engine.experimental ? enabledIcon : pausedIcon
         if button.image !== image { button.image = image }
-        button.toolTip = "MiniToggle: \(statusTitle)"
+        button.toolTip = "MiniToggle \(versionDescription) · \(statusTitle)"
         enableSwitch.state = engine.running ? .on : .off
         statusEntry?.title = statusTitle
     }
@@ -68,6 +78,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         control.view = row
         menu.addItem(control)
         menu.addItem(.separator())
+        add("关于 MiniToggle", #selector(showAbout))
         add("设置", #selector(showSettings))
         add("复制日志", #selector(copyLogs))
         add("退出", #selector(quit))
@@ -80,11 +91,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return value
     }
     @objc func showSettings() { settingsWindow.present() }
+    @objc private func showAbout() {
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.orderFrontStandardAboutPanel(options: [
+            .credits: NSAttributedString(string: "运行位置\n\(Bundle.main.bundlePath)")
+        ])
+    }
     @objc func toggle() {
-        if engine.running { engine.stop() }
-        else {
-            engine.experimental = true
-            engine.start()
+        menu.cancelTracking()
+        // Permission UI must open after the menu's tracking loop has ended.
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            if self.engine.running {
+                self.engine.stop()
+                return
+            }
+            self.enable()
+        }
+    }
+    private func enable() {
+        engine.experimental = true
+        engine.start()
+        guard !engine.running else { return }
+
+        showSettings()
+        guard let window = settingsWindow.window else { return }
+        let needsAccessibility = !AXIsProcessTrusted()
+        let alert = NSAlert()
+        alert.messageText = "无法启用 MiniToggle"
+        alert.informativeText = needsAccessibility
+            ? "请在系统设置的“隐私与安全性 → 辅助功能”中允许 MiniToggle，然后返回菜单重新启用。重新构建后可能需要重新授权。"
+            : "\(engine.status)。请检查系统权限后重新启用，详细原因可从菜单栏复制日志查看。"
+        alert.addButton(withTitle: "打开系统设置")
+        alert.addButton(withTitle: "稍后")
+        alert.beginSheetModal(for: window) { [weak self] response in
+            guard response == .alertFirstButtonReturn else { return }
+            if needsAccessibility {
+                self?.openAX()
+            } else {
+                NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent")!)
+            }
         }
     }
     @objc func requestAX() {
@@ -130,6 +176,7 @@ if CommandLine.arguments.contains("--audit-windows") {
 } else if CommandLine.arguments.contains("--check") {
     print("AX trusted: \(AXIsProcessTrusted())")
     print("Listen preflight (advisory): \(CGPreflightListenEventAccess())")
+    print("Screen capture authorized: \(CGPreflightScreenCaptureAccess())")
 } else {
     let app = NSApplication.shared
     let delegate = AppDelegate()

@@ -9,7 +9,10 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSTa
     private var general: NSStackView!
     private let engineStatus = NSTextField(wrappingLabelWithString: "")
     private let permissionStatus = NSTextField(labelWithString: "")
-    private let login = NSButton(checkboxWithTitle: "登录时启动", target: nil, action: nil)
+    private let captureStatus = NSTextField(labelWithString: "")
+    private let login = NSSwitch()
+    private let enableAtLaunch = NSSwitch()
+    private let loginLabel = NSTextField(labelWithString: "登录时启动")
     private let table = NSTableView()
     private let remove = NSButton(title: "−", target: nil, action: nil)
     private let empty = NSTextField(labelWithString: "暂无排除应用")
@@ -19,9 +22,9 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSTa
 
     init(appDelegate: AppDelegate) {
         self.appDelegate = appDelegate
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 540, height: 280),
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 600, height: 520),
             styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
-        window.title = "MiniToggle 设置"
+        window.title = "MiniToggle \(appDelegate.versionDescription) 设置"
         window.isReleasedWhenClosed = false
         super.init(window: window)
         window.delegate = self
@@ -34,28 +37,55 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSTa
             tabs.bottomAnchor.constraint(equalTo: window.contentView!.bottomAnchor, constant: -10)
         ])
         general = page("通用")
-        engineStatus.preferredMaxLayoutWidth = 350
-        engineStatus.widthAnchor.constraint(lessThanOrEqualToConstant: 350).isActive = true
-        general.addArrangedSubview(row([heading("运行状态"), engineStatus,
-            help("从菜单栏启用或暂停。无法确认窗口状态时会停止增强，可复制日志查看原因并重试。")]))
-        login.target = self; login.action = #selector(toggleLogin)
-        general.addArrangedSubview(row([login, help("登录后仍默认暂停，由你从菜单栏启用。"),
-            button("登录项设置…", #selector(openLogin))]))
-        general.addArrangedSubview(separator())
-        general.addArrangedSubview(row([heading("辅助功能"), permissionStatus,
-            help("用于识别 Dock 图标、读取活动窗口并执行最小化。授权后从菜单栏启用。")]))
-        general.addArrangedSubview(row([button("申请权限…", #selector(requestAX)),
-            button("打开系统设置…", #selector(openAX)), button("刷新状态", #selector(refresh)),
-            help("在系统设置中授权后返回，状态会自动刷新，也可手动刷新。")]))
-        general.addArrangedSubview(row([button("申请输入监控…", #selector(requestInput)),
-            help("仅监听创建失败、系统要求输入监控权限时使用，正常运行无需额外申请。")]))
-        general.addArrangedSubview(separator())
-        general.addArrangedSubview(row([heading("日志"), button("清空日志", #selector(clearLogs)),
-            help("最多保留本次运行的 200 条日志；从菜单栏复制。退出后清除，不记录窗口标题或按键内容。")]))
+        general.spacing = 16
+        engineStatus.font = .systemFont(ofSize: 13, weight: .medium)
+        permissionStatus.font = .systemFont(ofSize: 13, weight: .medium)
+        login.target = self
+        login.action = #selector(toggleLogin)
+        login.setAccessibilityLabel("登录时启动")
+        enableAtLaunch.target = self
+        enableAtLaunch.action = #selector(toggleEnableAtLaunch)
+        enableAtLaunch.setAccessibilityLabel("启动时自动启用")
+
+        let runtime = settingsRow("运行状态", detail: "从菜单栏启用或暂停 MiniToggle。", trailing: engineStatus)
+        let startup = settingsRow(loginLabel, detail: "登录 macOS 后自动打开 MiniToggle。", trailing: login)
+        let loginSettings = button("登录项设置…", #selector(openLogin))
+        startup.addArrangedSubview(loginSettings)
+        let autoEnable = settingsRow("启动时自动启用", detail: "下次启动生效，包含登录后启动。", trailing: enableAtLaunch)
+        general.addArrangedSubview(settingsCard("启动与运行", rows: [runtime, startup, autoEnable]))
+
+        let accessibility = settingsRow("辅助功能", detail: "识别 Dock 图标、读取窗口、最小化及切换窗口。", trailing: permissionStatus)
+        let permissionActions = row([
+            button("申请权限…", #selector(requestAX)),
+            button("系统设置…", #selector(openAX)),
+            button("刷新状态", #selector(refresh))
+        ])
+        let permissionContent = NSStackView(views: [accessibility, permissionActions])
+        permissionContent.orientation = .vertical
+        permissionContent.alignment = .leading
+        permissionContent.spacing = 12
+        accessibility.widthAnchor.constraint(equalTo: permissionContent.widthAnchor).isActive = true
+        let input = settingsRow("输入监控", detail: "仅在监听创建失败且系统要求时申请。", trailing: button("申请…", #selector(requestInput)))
+        let capture = settingsRow("屏幕录制", detail: "用于 Dock 悬停窗口缩略图，授权后可能需要重启应用。", trailing: captureStatus)
+        let captureContent = NSStackView(views: [capture, button("授权屏幕录制…", #selector(requestCapture))])
+        captureContent.orientation = .vertical
+        captureContent.alignment = .leading
+        captureContent.spacing = 8
+        capture.widthAnchor.constraint(equalTo: captureContent.widthAnchor).isActive = true
+        general.addArrangedSubview(settingsCard("权限", rows: [permissionContent, captureContent, input]))
+
+        let logs = settingsRow("运行日志", detail: "保留本次运行最近 200 条，可从菜单栏复制。", trailing: button("清空日志", #selector(clearLogs)))
+        logs.toolTip = "退出后清除，不记录窗口标题或按键内容。"
+        general.addArrangedSubview(settingsCard("诊断", rows: [logs]))
+        for section in general.arrangedSubviews {
+            section.widthAnchor.constraint(equalTo: general.widthAnchor).isActive = true
+        }
+        runtime.toolTip = "无法确认窗口状态时会停止增强，可复制日志查看原因并重试。"
+        permissionActions.toolTip = "在系统设置中授权后返回，状态会自动刷新，也可手动刷新。"
 
         let exclusions = page("排除应用")
         exclusions.addArrangedSubview(row([heading("排除应用"),
-            help("列表中的应用不执行再次点击最小化。用＋添加应用；选中行后用−移除，可多选。移除不会删除应用文件。")]))
+            help("列表中的应用不执行再次点击最小化和悬停预览。用＋添加应用；选中行后用−移除，可多选。移除不会删除应用文件。")]))
         let name = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("app"))
         name.title = "应用"; name.width = 330; name.minWidth = 260
         let kind = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("kind"))
@@ -124,21 +154,28 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSTa
         let height = exclusionTab ? listHeight.constant + 94 : max(260, general.fittingSize.height + 72)
         guard abs(window.contentLayoutRect.height - height) > 1 else { return }
         let top = window.frame.maxY
-        window.setContentSize(NSSize(width: 540, height: height))
+        window.setContentSize(NSSize(width: 600, height: height))
         window.setFrameOrigin(NSPoint(x: window.frame.minX, y: top - window.frame.height))
     }
     func updateEngineStatus() {
         let text = appDelegate?.engine.running == true ? "运行中" : "已暂停"
         guard engineStatus.stringValue != text else { return }
         engineStatus.stringValue = text
+        engineStatus.textColor = appDelegate?.engine.running == true ? .systemGreen : .secondaryLabelColor
         if window?.isVisible == true { resizeWindow() }
     }
     func refreshControls() {
         updateEngineStatus()
-        permissionStatus.stringValue = AXIsProcessTrusted() ? "已授权" : "未授权"
+        enableAtLaunch.state = appDelegate?.enableAtLaunch == true ? .on : .off
+        let trusted = AXIsProcessTrusted()
+        permissionStatus.stringValue = trusted ? "✓ 已授权" : "需要授权"
+        permissionStatus.textColor = trusted ? .systemGreen : .secondaryLabelColor
+        let captureAllowed = CGPreflightScreenCaptureAccess()
+        captureStatus.stringValue = captureAllowed ? "✓ 已授权" : "需要授权"
+        captureStatus.textColor = captureAllowed ? .systemGreen : .secondaryLabelColor
         let status = SMAppService.mainApp.status
         login.state = status == .enabled ? .on : .off
-        login.title = status == .requiresApproval ? "登录时启动（等待批准）" : "登录时启动"
+        loginLabel.stringValue = status == .requiresApproval ? "登录时启动（等待批准）" : "登录时启动"
     }
     private func page(_ title: String) -> NSStackView {
         let item = NSTabViewItem(identifier: title); item.label = title
@@ -146,9 +183,9 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSTa
         stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = 8
         stack.translatesAutoresizingMaskIntoConstraints = false; container.addSubview(stack)
         NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 10),
-            stack.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -10),
-            stack.topAnchor.constraint(equalTo: container.topAnchor, constant: 10),
+            stack.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 18),
+            stack.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -18),
+            stack.topAnchor.constraint(equalTo: container.topAnchor, constant: 20),
             stack.bottomAnchor.constraint(lessThanOrEqualTo: container.bottomAnchor, constant: -10)
         ])
         item.view = container; tabs.addTabViewItem(item); return stack
@@ -160,8 +197,60 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSTa
     private func heading(_ text: String) -> NSTextField {
         let label = NSTextField(labelWithString: text); label.font = .boldSystemFont(ofSize: NSFont.systemFontSize); return label
     }
-    private func separator() -> NSBox {
-        let box = NSBox(); box.boxType = .separator; box.widthAnchor.constraint(equalToConstant: 470).isActive = true; return box
+    private func settingsRow(_ title: String, detail: String, trailing: NSView) -> NSStackView {
+        settingsRow(NSTextField(labelWithString: title), detail: detail, trailing: trailing)
+    }
+    private func settingsRow(_ title: NSTextField, detail: String, trailing: NSView) -> NSStackView {
+        title.font = .systemFont(ofSize: 13, weight: .medium)
+        let subtitle = NSTextField(wrappingLabelWithString: detail)
+        subtitle.font = .systemFont(ofSize: 11)
+        subtitle.textColor = .secondaryLabelColor
+        subtitle.preferredMaxLayoutWidth = 310
+        let labels = NSStackView(views: [title, subtitle])
+        labels.orientation = .vertical
+        labels.alignment = .leading
+        labels.spacing = 5
+        labels.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        trailing.setContentHuggingPriority(.required, for: .horizontal)
+        trailing.setContentCompressionResistancePriority(.required, for: .horizontal)
+        let result = row([labels, trailing])
+        result.distribution = .fill
+        result.spacing = 16
+        return result
+    }
+    private func settingsCard(_ title: String, rows: [NSView]) -> NSStackView {
+        let label = heading(title)
+        label.textColor = .secondaryLabelColor
+        label.font = .systemFont(ofSize: 12, weight: .medium)
+        let content = NSStackView()
+        content.orientation = .vertical
+        content.alignment = .leading
+        content.spacing = 14
+        for (index, view) in rows.enumerated() {
+            if index > 0 {
+                let divider = NSBox()
+                divider.boxType = .separator
+                content.addArrangedSubview(divider)
+                divider.widthAnchor.constraint(equalTo: content.widthAnchor).isActive = true
+            }
+            content.addArrangedSubview(view)
+            view.widthAnchor.constraint(equalTo: content.widthAnchor).isActive = true
+        }
+        let card = NSBox()
+        card.boxType = .custom
+        card.titlePosition = .noTitle
+        card.borderWidth = 0.5
+        card.borderColor = .separatorColor
+        card.fillColor = .controlBackgroundColor
+        card.cornerRadius = 10
+        card.contentViewMargins = NSSize(width: 16, height: 16)
+        card.contentView = content
+        let section = NSStackView(views: [label, card])
+        section.orientation = .vertical
+        section.alignment = .leading
+        section.spacing = 8
+        card.widthAnchor.constraint(equalTo: section.widthAnchor).isActive = true
+        return section
     }
     private func help(_ text: String) -> NSView {
         let help = HoverHelpButton(text)
@@ -229,4 +318,12 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSTa
     @objc private func requestAX() { appDelegate?.requestAX(); refreshControls() }
     @objc private func openAX() { appDelegate?.openAX() }
     @objc private func requestInput() { appDelegate?.requestInput() }
+    @objc private func toggleEnableAtLaunch() {
+        appDelegate?.enableAtLaunch = enableAtLaunch.state == .on
+    }
+    @objc private func requestCapture() {
+        if !CGPreflightScreenCaptureAccess() { _ = CGRequestScreenCaptureAccess() }
+        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!)
+        refreshControls()
+    }
 }

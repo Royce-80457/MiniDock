@@ -134,12 +134,34 @@ enum AX {
 
     /// Hit test in CGEvent's global, top-left coordinate space. Never flip via NSScreen.main.
     static func dockApplication(at point: CGPoint) throws -> NSRunningApplication? {
+        try dockTarget(at: point, includeHidden: false, requireFrame: false)?.app
+    }
+
+    static func dockTarget(at point: CGPoint, includeHidden: Bool = true, requireFrame: Bool = true) throws -> (app: NSRunningApplication, frame: CGRect)? {
         var hit: AXUIElement?
-        let error = AXUIElementCopyElementAtPosition(system, Float(point.x), Float(point.y), &hit)
+        var error = AXUIElementCopyElementAtPosition(system, Float(point.x), Float(point.y), &hit)
         // System-wide hit testing can land on an arbitrary application's UI.
         // No AX hit-test implementation there means no confirmed Dock icon;
         // it is not a failure of MiniToggle's event listener or authorization.
-        if error == .noValue || error == .notImplemented { return nil }
+        if [.failure, .cannotComplete, .noValue, .notImplemented].contains(error) {
+            // Some full-screen players make system-wide AX hit testing fail.
+            // Only query Dock directly when WindowServer confirms a visible
+            // Dock-owned surface under this point, excluding desktop wallpaper.
+            guard let dock = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first,
+                  let windows = CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]],
+                  windows.contains(where: { window in
+                      guard (window[kCGWindowOwnerPID as String] as? Int32) == dock.processIdentifier,
+                            (window[kCGWindowLayer as String] as? Int ?? 0) > 0,
+                            (window[kCGWindowAlpha as String] as? Double ?? 0) > 0,
+                            let bounds = window[kCGWindowBounds as String] as? [String: Any],
+                            let frame = CGRect(dictionaryRepresentation: bounds as CFDictionary) else { return false }
+                      return frame.contains(point)
+                  }) else { return nil }
+            let application = AXUIElementCreateApplication(dock.processIdentifier)
+            AXUIElementSetMessagingTimeout(application, 0.05)
+            error = AXUIElementCopyElementAtPosition(application, Float(point.x), Float(point.y), &hit)
+            if [.failure, .cannotComplete, .noValue, .notImplemented].contains(error) { return nil }
+        }
         guard error == .success else { throw AXFailure(error, operation: "hitTest") }
         guard var item = hit else { return nil }
         for _ in 0..<5 {
@@ -151,10 +173,13 @@ enum AX {
                 guard let url = try read(item, kAXURLAttribute) as? URL, url.isFileURL,
                       url.pathExtension.lowercased() == "app" else { return nil }
                 let matches = NSWorkspace.shared.runningApplications.filter {
-                    $0.activationPolicy == .regular && !$0.isTerminated && !$0.isHidden
+                    $0.activationPolicy == .regular && !$0.isTerminated && (includeHidden || !$0.isHidden)
                     && $0.bundleURL?.resolvingSymlinksInPath() == url.resolvingSymlinksInPath()
                 }
-                return matches.count == 1 ? matches.first : nil
+                guard matches.count == 1, let app = matches.first else { return nil }
+                if !requireFrame { return (app, .zero) }
+                guard let bounds = try frame(item) else { return nil }
+                return (app, bounds)
             }
             guard let parent = try element(item, kAXParentAttribute) else { return nil }
             item = parent

@@ -10,19 +10,6 @@ final class Engine {
         let timestamp: UInt64
         let generation: Int
     }
-    /// Counts only, never key codes or event contents. Unlike the tap callback,
-    /// these counters can also notice input waiting while AX is being queried.
-    private struct InputStamp: Equatable {
-        let counts: [UInt32]
-        static func capture() -> InputStamp {
-            let types: [CGEventType] = [.leftMouseDown, .leftMouseUp, .rightMouseDown,
-                .otherMouseDown, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged,
-                .flagsChanged, .keyDown, .scrollWheel]
-            return InputStamp(counts: types.map {
-                CGEventSource.counterForEventType(.combinedSessionState, eventType: $0)
-            })
-        }
-    }
     private var deferredActionID: UUID?
     private var tap: CFMachPort?
     private var source: CFRunLoopSource?
@@ -34,13 +21,18 @@ final class Engine {
     private let verificationQueue = DispatchQueue(label: "local.royce.MiniToggle.verification")
     private var verificationID: UUID?
     private var readFailures = ReadFailureTracker()
+    private lazy var dockPreview: DockPreviewController = {
+        let controller = DockPreviewController()
+        controller.record = { [weak self] in self?.record($0) }
+        return controller
+    }()
     var experimental = false {
         didSet {
             invalidate()
             if running { status = experimental ? "运行中" : "观察中"; changed?() }
         }
     }
-    var excluded: Set<String> = [] { didSet { invalidate() } }
+    var excluded: Set<String> = [] { didSet { dockPreview.excluded = excluded; invalidate() } }
     private(set) var running = false
     private(set) var status = "已暂停"
     private(set) var records: [String] = []
@@ -65,6 +57,13 @@ final class Engine {
             object: nil, queue: .main) { [weak self] _ in self?.invalidate("display-change") })
     }
     func invalidate(_ reason: String = "settings-change", settlingDelay: Double = 0.4) {
+        dockPreview.dismiss(suppressUntilPointerLeaves: false)
+        // A preview activation may itself switch the app and Space. Its input
+        // stamp cancels user-initiated transitions while this handoff completes.
+        if reason != NSWorkspace.didActivateApplicationNotification.rawValue
+            && reason != NSWorkspace.activeSpaceDidChangeNotification.rawValue {
+            dockPreview.cancelActivation()
+        }
         if pending != nil { record("cancel candidate reason=\(reason)") }
         pending = nil
         cancelDeferred("state-change: \(reason)")
@@ -103,12 +102,14 @@ final class Engine {
         running = true
         status = experimental ? "运行中" : "观察中"
         invalidate()
+        dockPreview.start()
         healthTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
             self?.checkHealth()
         }
         record("started; experimental=\(experimental)")
     }
     func stop(_ reason: String = "已暂停") {
+        dockPreview.stop()
         pending = nil
         deferredActionID = nil
         verificationID = nil
