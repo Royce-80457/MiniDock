@@ -18,7 +18,7 @@ final class Engine {
     private var quietUntil = 0.0
     private var observers: [NSObjectProtocol] = []
     private var healthTimer: Timer?
-    private let verificationQueue = DispatchQueue(label: "local.royce.MiniToggle.verification")
+    private let verificationQueue = DispatchQueue(label: "local.royce.MiniDock.verification")
     private var verificationID: UUID?
     private var readFailures = ReadFailureTracker()
     private lazy var dockPreview: DockPreviewController = {

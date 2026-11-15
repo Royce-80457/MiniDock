@@ -46,7 +46,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard let button = item?.button else { return }
         let image = engine.running && engine.experimental ? enabledIcon : pausedIcon
         if button.image !== image { button.image = image }
-        button.toolTip = "MiniToggle \(versionDescription) · \(statusTitle)"
+        button.toolTip = "MiniDock \(versionDescription) · \(statusTitle)"
         enableSwitch.state = engine.running ? .on : .off
         statusEntry?.title = statusTitle
     }
@@ -78,7 +78,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         control.view = row
         menu.addItem(control)
         menu.addItem(.separator())
-        add("关于 MiniToggle", #selector(showAbout))
+        add("关于 MiniDock", #selector(showAbout))
         add("设置", #selector(showSettings))
         add("复制日志", #selector(copyLogs))
         add("退出", #selector(quit))
@@ -118,9 +118,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard let window = settingsWindow.window else { return }
         let needsAccessibility = !AXIsProcessTrusted()
         let alert = NSAlert()
-        alert.messageText = "无法启用 MiniToggle"
+        alert.messageText = "无法启用 MiniDock"
         alert.informativeText = needsAccessibility
-            ? "请在系统设置的“隐私与安全性 → 辅助功能”中允许 MiniToggle，然后返回菜单重新启用。重新构建后可能需要重新授权。"
+            ? "请在系统设置的“隐私与安全性 → 辅助功能”中允许 MiniDock，然后返回菜单重新启用。重新构建后可能需要重新授权。"
             : "\(engine.status)。请检查系统权限后重新启用，详细原因可从菜单栏复制日志查看。"
         alert.addButton(withTitle: "打开系统设置")
         alert.addButton(withTitle: "稍后")

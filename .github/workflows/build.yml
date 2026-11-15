@@ -8,6 +8,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Build app without signing
-        run: xcodebuild -project MiniToggle.xcodeproj -scheme MiniToggle -configuration Release -destination 'platform=macOS' -derivedDataPath build/ci CODE_SIGNING_ALLOWED=NO build
+        run: xcodebuild -project MiniDock.xcodeproj -scheme MiniDock -configuration Release -destination 'platform=macOS' -derivedDataPath build/ci CODE_SIGNING_ALLOWED=NO build
       - name: Run core tests
-        run: xcodebuild -project MiniToggle.xcodeproj -scheme MiniToggle -configuration Debug -destination 'platform=macOS' -derivedDataPath build/ci CODE_SIGNING_ALLOWED=NO test
+        run: xcodebuild -project MiniDock.xcodeproj -scheme MiniDock -configuration Debug -destination 'platform=macOS' -derivedDataPath build/ci CODE_SIGNING_ALLOWED=NO test

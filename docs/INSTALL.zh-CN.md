@@ -1,13 +1,13 @@
-# MiniToggle 1.1.4 安装说明
+# MiniDock 1.1.5 安装说明
 
 适用于 macOS 13 及以上；同一 DMG 内含 Apple silicon / Intel 通用应用。实际运行主要在 Apple silicon、macOS 27.0.1 上验证；Intel 与旧系统运行尚未完整验证。
 
-1. 打开 MiniToggle-1.1.4-universal.dmg。
-2. 将 MiniToggle.app 拖入 Applications（应用程序）快捷入口。
+1. 打开 MiniDock-1.1.5-universal.dmg。
+2. 将 MiniDock.app 拖入 Applications（应用程序）快捷入口。
 3. 若正在运行旧版，先从菜单退出，再从“应用程序”打开新版本。请勿直接从安装镜像长期运行或同时开启多份。
-4. 菜单 → 设置 → 通用，申请/打开辅助功能权限。在“系统设置 → 隐私与安全性 → 辅助功能”中授权安装后的 MiniToggle。若旧授权失效，移除旧条目并添加 /Applications/MiniToggle.app。
+4. 菜单 → 设置 → 通用，申请/打开辅助功能权限。在“系统设置 → 隐私与安全性 → 辅助功能”中授权安装后的 MiniDock。若旧授权失效，移除旧条目并添加 /Applications/MiniDock.app。
 5. 应用默认启动时启用，可在设置 → 通用中切换“启动时自动启用”。窗口缩略图还需在通用设置中授权屏幕录制。实心菜单栏图标表示启用，空心表示暂停。可在“排除应用”页用＋添加不兼容的 app；日志从菜单复制。
-6. 安装后可推出 DMG。更新时退出旧应用，再用新版替换应用程序中的 app，排除列表会保留。
+6. 安装后可推出 DMG。更新时退出旧应用，再用新版替换应用程序中的 app，同名版本更新会保留排除列表。首次安装更名前的版本后升级至 MiniDock，需重新设置偏好、排除列表、登录启动项，并重新授予辅助功能和屏幕录制权限。请退出并移除旧应用，避免同时运行。
 
 ## 签名与首次打开
 
@@ -16,7 +16,7 @@
 只在确认下载来自自己的可信仓库、且文件未被篡改时，按 Apple 官方说明在尝试启动后进入“隐私与安全性”，使用系统提供的“仍要打开”入口。不同系统或管理策略下该入口可能不可用。请勿关闭 Gatekeeper、SIP 或全局安全保护；无法运行时可从源码在自己的 Xcode 环境构建。
 
 Apple 官方说明：https://support.apple.com/102445
-源码及 Release：https://github.com/Royce-80457/MiniToggle
+源码及 Release：https://github.com/Royce-80457/MiniDock
 
 ## 已知限制
 
@@ -27,4 +27,4 @@ Apple 官方说明：https://support.apple.com/102445
 
 ## 卸载
 
-退出 MiniToggle，将应用程序中的 MiniToggle.app 移入废纸篓；如曾开启登录启动，可先在通用设置中取消，或从系统登录项中移除。辅助功能列表中的旧条目也可手动移除。
+退出 MiniDock，将应用程序中的 MiniDock.app 移入废纸篓；如曾开启登录启动，可先在通用设置中取消，或从系统登录项中移除。辅助功能列表中的旧条目也可手动移除。

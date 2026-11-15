@@ -14,11 +14,11 @@ if [[ -z "${SIGNING_IDENTITY:-}" ]]; then
         print -u2 -- "Warning: using ad-hoc signing; rebuilt apps may require fresh Accessibility authorization. Set SIGNING_IDENTITY to a stable certificate."
     fi
 fi
-xcodebuild -project MiniToggle.xcodeproj -scheme MiniToggle \
+xcodebuild -project MiniDock.xcodeproj -scheme MiniDock \
     -configuration Release -destination 'platform=macOS' \
     -derivedDataPath build/xcode CODE_SIGN_STYLE=Manual \
     CODE_SIGN_IDENTITY="$SIGNING_IDENTITY" build
-APP="$PWD/build/MiniToggle.app"
-ditto build/xcode/Build/Products/Release/MiniToggle.app "$APP"
+APP="$PWD/build/MiniDock.app"
+ditto build/xcode/Build/Products/Release/MiniDock.app "$APP"
 codesign --verify --strict "$APP"
 print -r -- "$APP"

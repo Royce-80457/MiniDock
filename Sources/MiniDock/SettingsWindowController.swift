@@ -24,7 +24,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSTa
         self.appDelegate = appDelegate
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 600, height: 520),
             styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
-        window.title = "MiniToggle \(appDelegate.versionDescription) 设置"
+        window.title = "MiniDock \(appDelegate.versionDescription) 设置"
         window.isReleasedWhenClosed = false
         super.init(window: window)
         window.delegate = self
@@ -47,8 +47,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSTa
         enableAtLaunch.action = #selector(toggleEnableAtLaunch)
         enableAtLaunch.setAccessibilityLabel("启动时自动启用")
 
-        let runtime = settingsRow("运行状态", detail: "从菜单栏启用或暂停 MiniToggle。", trailing: engineStatus)
-        let startup = settingsRow(loginLabel, detail: "登录 macOS 后自动打开 MiniToggle。", trailing: login)
+        let runtime = settingsRow("运行状态", detail: "从菜单栏启用或暂停 MiniDock。", trailing: engineStatus)
+        let startup = settingsRow(loginLabel, detail: "登录 macOS 后自动打开 MiniDock。", trailing: login)
         let loginSettings = button("登录项设置…", #selector(openLogin))
         startup.addArrangedSubview(loginSettings)
         let autoEnable = settingsRow("启动时自动启用", detail: "下次启动生效，包含登录后启动。", trailing: enableAtLaunch)

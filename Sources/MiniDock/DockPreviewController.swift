@@ -7,7 +7,7 @@ final class DockPreviewController {
     private let panel = PreviewPanel()
     private let activator = PreviewWindowActivator()
     private let windowStore = PreviewWindowStore()
-    private let queue = DispatchQueue(label: "local.royce.MiniToggle.previewAX", qos: .userInitiated)
+    private let queue = DispatchQueue(label: "local.royce.MiniDock.previewAX", qos: .userInitiated)
     private var timer: Timer?
     private var globalMonitor: Any?
     private var localMonitor: Any?

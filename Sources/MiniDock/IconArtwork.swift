@@ -39,7 +39,7 @@ enum IconArtwork {
             return true
         }
         image.isTemplate = true
-        image.accessibilityDescription = enabled ? "MiniToggle enabled" : "MiniToggle paused"
+        image.accessibilityDescription = enabled ? "MiniDock enabled" : "MiniDock paused"
         return image
     }
     static func drawAppIcon() {

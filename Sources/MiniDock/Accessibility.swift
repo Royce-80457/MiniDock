@@ -142,7 +142,7 @@ enum AX {
         var error = AXUIElementCopyElementAtPosition(system, Float(point.x), Float(point.y), &hit)
         // System-wide hit testing can land on an arbitrary application's UI.
         // No AX hit-test implementation there means no confirmed Dock icon;
-        // it is not a failure of MiniToggle's event listener or authorization.
+        // it is not a failure of MiniDock's event listener or authorization.
         if [.failure, .cannotComplete, .noValue, .notImplemented].contains(error) {
             // Some full-screen players make system-wide AX hit testing fail.
             // Only query Dock directly when WindowServer confirms a visible

@@ -1,6 +1,6 @@
 import AppKit
 
-// Compile with Sources/MiniToggle/IconArtwork.swift to regenerate the assets.
+// Compile with Sources/MiniDock/IconArtwork.swift to regenerate the assets.
 @main struct RenderIcons {
     static func png(_ size: Int, draw: () -> Void) throws -> Data {
         let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: size, pixelsHigh: size,

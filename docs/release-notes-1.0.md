@@ -1,8 +1,8 @@
-MiniToggle 1.0：macOS 菜单栏 Dock 再次点击最小化工具。
+MiniDock 1.0：macOS 菜单栏 Dock 再次点击最小化工具。
 
 ## 下载与安装
 
-下载 **MiniToggle-1.0-universal.dmg**，打开后将 app 拖到 Applications，再从应用程序启动。macOS 13+，同一 app 含 arm64 / x86_64。`SHA256SUMS.txt` 用于核对下载完整性。
+下载 **MiniDock-1.0-universal.dmg**，打开后将 app 拖到 Applications，再从应用程序启动。macOS 13+，同一 app 含 arm64 / x86_64。`SHA256SUMS.txt` 用于核对下载完整性。
 
 **签名限制：本包使用 Apple Development 开发签名，尚未使用 Developer ID 分发签名或完成 Apple 公证。Gatekeeper 可能阻止互联网下载版本启动，不承诺开箱运行。** 仅确认来源可信后按 [Apple 官方说明](https://support.apple.com/102445)使用隐私与安全性里的系统允许入口；也可从源码自行构建。无需也不应关闭 Gatekeeper 或 SIP。
 

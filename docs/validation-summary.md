@@ -27,7 +27,7 @@
 
 ## 标准 Xcode 工程验证
 
-- 原生 App、静态核心模块、无宿主 XCTest 三个 target；MiniToggle 共享 Scheme 支持 Run / Test / Archive。
+- 原生 App、静态核心模块、无宿主 XCTest 三个 target；MiniDock 共享 Scheme 支持 Run / Test / Archive。
 - Xcode 工程 Debug 构建及使用本机开发证书的 Release 构建成功，Release 签名验证通过；arm64 + x86_64 通用二进制生成成功。Intel 真机运行仍未验证。
 - 通过 xcodebuild test 实际运行 12 项核心规则测试，全部通过。App 部署目标仍为 macOS 13，测试 target 单独使用 macOS 14+ 以兼容当前 XCTest。
 - 工程迁移仅调整构建、签名配置和文档，没有修改增强行为，也未替换当前试用的旧产物。

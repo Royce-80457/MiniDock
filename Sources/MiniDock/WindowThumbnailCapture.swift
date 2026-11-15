@@ -5,7 +5,7 @@ import CoreImage
 // Once started, mutable stream state and completion are confined to queue.
 final class WindowThumbnailCapture: NSObject, SCStreamOutput, SCStreamDelegate, @unchecked Sendable {
     private static let context = CIContext()
-    private let queue = DispatchQueue(label: "local.royce.MiniToggle.thumbnail")
+    private let queue = DispatchQueue(label: "local.royce.MiniDock.thumbnail")
     private var stream: SCStream?
     private var completion: ((CGImage?) -> Void)?
 

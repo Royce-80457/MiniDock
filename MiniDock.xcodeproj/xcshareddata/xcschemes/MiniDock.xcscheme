@@ -3,28 +3,28 @@
   <BuildAction parallelizeBuildables="YES" buildImplicitDependencies="YES">
     <BuildActionEntries>
       <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
-        <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="8B278D8500E81111F4535070" BuildableName="MiniToggle.app" BlueprintName="MiniToggle" ReferencedContainer="container:MiniToggle.xcodeproj" />
+        <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="8B278D8500E81111F4535070" BuildableName="MiniDock.app" BlueprintName="MiniDock" ReferencedContainer="container:MiniDock.xcodeproj" />
       </BuildActionEntry>
       <BuildActionEntry buildForTesting="YES" buildForRunning="NO" buildForProfiling="NO" buildForArchiving="NO" buildForAnalyzing="YES">
-        <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="2D04FD60D9CA49F7A4B1FEE1" BuildableName="ToggleCoreTests.xctest" BlueprintName="ToggleCoreTests" ReferencedContainer="container:MiniToggle.xcodeproj" />
+        <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="2D04FD60D9CA49F7A4B1FEE1" BuildableName="ToggleCoreTests.xctest" BlueprintName="ToggleCoreTests" ReferencedContainer="container:MiniDock.xcodeproj" />
       </BuildActionEntry>
     </BuildActionEntries>
   </BuildAction>
   <TestAction buildConfiguration="Debug" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.IDEFoundation.Launcher.LLDB" shouldUseLaunchSchemeArgsEnv="YES">
     <Testables>
       <TestableReference skipped="NO">
-        <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="2D04FD60D9CA49F7A4B1FEE1" BuildableName="ToggleCoreTests.xctest" BlueprintName="ToggleCoreTests" ReferencedContainer="container:MiniToggle.xcodeproj" />
+        <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="2D04FD60D9CA49F7A4B1FEE1" BuildableName="ToggleCoreTests.xctest" BlueprintName="ToggleCoreTests" ReferencedContainer="container:MiniDock.xcodeproj" />
       </TestableReference>
     </Testables>
   </TestAction>
   <LaunchAction buildConfiguration="Debug" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.IDEFoundation.Launcher.LLDB" launchStyle="0" useCustomWorkingDirectory="NO" ignoresPersistentStateOnLaunch="NO" debugDocumentVersioning="YES" debugServiceExtension="internal" allowLocationSimulation="YES">
     <BuildableProductRunnable runnableDebuggingMode="0">
-      <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="8B278D8500E81111F4535070" BuildableName="MiniToggle.app" BlueprintName="MiniToggle" ReferencedContainer="container:MiniToggle.xcodeproj" />
+      <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="8B278D8500E81111F4535070" BuildableName="MiniDock.app" BlueprintName="MiniDock" ReferencedContainer="container:MiniDock.xcodeproj" />
     </BuildableProductRunnable>
   </LaunchAction>
   <ProfileAction buildConfiguration="Release" shouldUseLaunchSchemeArgsEnv="YES" savedToolIdentifier="" useCustomWorkingDirectory="NO" debugDocumentVersioning="YES">
     <BuildableProductRunnable runnableDebuggingMode="0">
-      <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="8B278D8500E81111F4535070" BuildableName="MiniToggle.app" BlueprintName="MiniToggle" ReferencedContainer="container:MiniToggle.xcodeproj" />
+      <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="8B278D8500E81111F4535070" BuildableName="MiniDock.app" BlueprintName="MiniDock" ReferencedContainer="container:MiniDock.xcodeproj" />
     </BuildableProductRunnable>
   </ProfileAction>
   <AnalyzeAction buildConfiguration="Debug" />

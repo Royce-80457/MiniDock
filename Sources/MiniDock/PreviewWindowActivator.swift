@@ -47,7 +47,7 @@ final class PreviewWindowActivator {
         let frontmost: Bool
         let focused: Bool
     }
-    private let queue = DispatchQueue(label: "local.royce.MiniToggle.previewFocus", qos: .userInitiated)
+    private let queue = DispatchQueue(label: "local.royce.MiniDock.previewFocus", qos: .userInitiated)
     private var request: Request?
     private var task: Task<Void, Never>?
     var record: ((String) -> Void)?

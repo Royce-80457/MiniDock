@@ -1,12 +1,14 @@
-# MiniToggle
+# MiniDock
 
 Swift / AppKit 菜单栏工具，用公开的 Quartz 鼠标事件监听和 Accessibility API，为前台应用 Dock 图标添加再次点击最小化，并提供已运行应用的 Dock 悬停窗口预览。默认启动时启用，可在设置 → 通用中关闭“启动时自动启用”。菜单栏开关控制当前运行状态。已知部分应用/快速操作仍可能无法最小化并触发保护暂停，详见验证记录。
 
 ## 安装
 
-从 [GitHub Release](https://github.com/Royce-80457/MiniToggle/releases/tag/v1.0) 下载 `MiniToggle-1.0-universal.dmg`，打开后将 MiniToggle 拖入 Applications。退出旧实例，再从“应用程序”启动，打开设置授予辅助功能权限，最后打开菜单“启用”开关。
+从 [GitHub Release](https://github.com/Royce-80457/MiniDock/releases/tag/v1.1.5) 下载 `MiniDock-1.1.5-universal.dmg`，打开后将 MiniDock 拖入 Applications。退出旧实例，再从“应用程序”启动，打开设置授予辅助功能权限，最后打开菜单“启用”开关。
 
 本次安装包使用 Apple Development 开发签名，尚无 Developer ID 分发签名及 Apple 公证，Gatekeeper 可能阻止启动。仅信任来源时按 [Apple 官方说明](https://support.apple.com/102445)在隐私与安全性中手动允许；不要关闭系统安全机制。也可自行从源码构建。详见 [安装说明](docs/INSTALL.zh-CN.md)。
+
+首次从更名前的版本升级时，请退出并移除旧应用。MiniDock 使用新的 Bundle ID，需重新授权辅助功能和屏幕录制，并重新设置偏好、排除列表及登录启动项。
 
 ## 构建与运行
 
@@ -14,34 +16,34 @@ Swift / AppKit 菜单栏工具，用公开的 Quartz 鼠标事件监听和 Acces
 
 ### 在 Xcode 中打开
 
-1. 双击 `MiniToggle.xcodeproj`，选择 **MiniToggle** Scheme 和 **My Mac**。
+1. 双击 `MiniDock.xcodeproj`，选择 **MiniDock** Scheme 和 **My Mac**。
 2. 本机调试可直接按 `⌘R`；按 `⌘U` 运行核心规则测试；归档使用 **Product → Archive**。
 3. 为避免每次重新构建丢失辅助功能授权，复制 `Configs/Signing.example.xcconfig` 为 `Configs/Signing.local.xcconfig`，填入自己的 Team ID，使用稳定的 Apple Development 证书。本地签名文件不会提交 Git；没有本地配置时工程使用 ad-hoc 签名。
-4. Xcode Run 产物位于 DerivedData，命令行脚本导出位于 `build/MiniToggle.app`。测试时固定使用一处 app，关闭旧实例，再为实际运行的 app 授权。已在试用的旧 app 不会因仅打开或构建工程被自动替换。
+4. Xcode Run 产物位于 DerivedData，命令行脚本导出位于 `build/MiniDock.app`。测试时固定使用一处 app，关闭旧实例，再为实际运行的 app 授权。已在试用的旧 app 不会因仅打开或构建工程被自动替换。
 
-工程包括三个 target：`MiniToggle` 原生 macOS 菜单栏 App、`ToggleCore` 静态 Swift 模块、`ToggleCoreTests` 无宿主单元测试。App 最低 macOS 13；测试 target 为 macOS 14+，适配当前 Xcode 的 XCTest 框架。共享 Scheme 随仓库提交。`Package.swift` 仍可用于单独的 SwiftPM 编译/测试，但原生 app 打包以 `.xcodeproj` 为准。新增或删除 Swift 文件时，在 Xcode 中保持相应 target membership 与 Package 源码目录一致。
+工程包括三个 target：`MiniDock` 原生 macOS 菜单栏 App、`ToggleCore` 静态 Swift 模块、`ToggleCoreTests` 无宿主单元测试。App 最低 macOS 13；测试 target 为 macOS 14+，适配当前 Xcode 的 XCTest 框架。共享 Scheme 随仓库提交。`Package.swift` 仍可用于单独的 SwiftPM 编译/测试，但原生 app 打包以 `.xcodeproj` 为准。新增或删除 Swift 文件时，在 Xcode 中保持相应 target membership 与 Package 源码目录一致。
 
 ### 命令行构建
 
 ```sh
-cd MiniToggle
+cd MiniDock
 ./scripts/build.sh
 ./scripts/test.sh
-open build/MiniToggle.app
+open build/MiniDock.app
 ```
 
 `build.sh` 使用标准工程的 Release 配置构建并导出 app，`test.sh` 使用同一工程执行 Debug XCTest。脚本导出 app 前请退出正在使用的旧实例。图标为一枚向下箭头与 Dock 形长条圆角矩形：应用图标固定采用 A 版实心长条和蓝色圆角底；菜单栏启用时实心，未启用、手动暂停或异常停止时空心，支持系统深浅色模板。自身默认不显示 Dock 图标。
 
-图标资源位于 `Resources/Assets.xcassets/AppIcon.appiconset`，菜单栏与应用图标共用 `IconArtwork.swift` 的矢量路径。修改后可在项目根目录运行 `swiftc Sources/MiniToggle/IconArtwork.swift scripts/render-icons.swift -o build/render-icons`，再执行 `./build/render-icons`，重新生成全部 macOS 图标尺寸。
+图标资源位于 `Resources/Assets.xcassets/AppIcon.appiconset`，菜单栏与应用图标共用 `IconArtwork.swift` 的矢量路径。修改后可在项目根目录运行 `swiftc Sources/MiniDock/IconArtwork.swift scripts/render-icons.swift -o build/render-icons`，再执行 `./build/render-icons`，重新生成全部 macOS 图标尺寸。
 
 脚本优先使用显式 `SIGNING_IDENTITY`；未指定时，自动使用本机唯一可用的 Apple Development 证书，没有唯一匹配时退回 ad-hoc 并打印警告。ad-hoc 重编译可能使 TCC 授权失效，不能稳定保留跨版本授权。开发阶段应一直使用同一签名证书、bundle ID 和 app 路径，重编译前退出旧进程；不要同时运行多份。正式分发应使用 Developer ID 签名和公证，但脚本本身不提交公证。
 
-若系统设置显示已开启而 app 显示未授权，先退出 MiniToggle，在辅助功能列表选中旧 MiniToggle 按 `−` 移除，再用 `+` 添加当前的 `build/MiniToggle.app` 并开启，重新启动。只关开旧记录可能无法替换过期的签名身份。更换签名证书（包括从 ad-hoc 切到 Apple Development）后也需重新授权一次；无需修改整个系统的 TCC 数据库。
+若系统设置显示已开启而 app 显示未授权，先退出 MiniDock，在辅助功能列表选中旧 MiniDock 按 `−` 移除，再用 `+` 添加当前的 `build/MiniDock.app` 并开启，重新启动。只关开旧记录可能无法替换过期的签名身份。更换签名证书（包括从 ad-hoc 切到 Apple Development）后也需重新授权一次；无需修改整个系统的 TCC 数据库。
 
 ## 权限和第一次测试
 
 1. 启动 app，打开菜单 → 设置 → 通用，在“辅助功能”区域选择“申请权限…”或“打开系统设置…”。
-2. 在系统设置 → 隐私与安全性 → 辅助功能（系统版本可能使用不同名称）中开启 MiniToggle；必要时用 `+` 添加 `build/MiniToggle.app`。用途：识别 Dock 图标、读取窗口、设置最小化状态和切换选中的窗口。
+2. 在系统设置 → 隐私与安全性 → 辅助功能（系统版本可能使用不同名称）中开启 MiniDock；必要时用 `+` 添加 `build/MiniDock.app`。用途：识别 Dock 图标、读取窗口、设置最小化状态和切换选中的窗口。
 3. 在设置窗口确认辅助功能“已授权”，回到菜单打开“启用”滑动开关。此开关同时开启监听和实验性最小化，无需第二个开关；首次授权完成后，可从菜单栏启用，之后启动将按照“启动时自动启用”设置运行。
 4. 启动 TextEdit 后若出现文件选择界面，先点“新建文稿”，进入可输入文字、带黄色最小化按钮的文稿编辑窗口。把文稿窗口缩小并放在屏幕中间，点击文稿使其成为前台，再短按其 Dock 图标，确认仅活动窗口最小化；再次点击应由系统恢复。
 5. 换另一应用为前台，再点击 TextEdit 图标。应只激活 TextEdit，诊断可能出现 `pass background-click`；不应有此点击的最小化请求。
@@ -52,7 +54,7 @@ open build/MiniToggle.app
 
 ## Dock 悬停窗口预览
 
-启用 MiniToggle 后，在已启动且有窗口的应用图标上停留约 400ms，会在 Dock 上方显示各窗口的缩略图和标题。鼠标可移入浮层点击目标窗口，已最小化的窗口会恢复。离开图标和浮层约 350ms 后关闭预览，点击其他位置、拖动、暂停或切换桌面也会关闭。Dock 位于屏幕左侧或右侧时，浮层显示在屏幕内侧。
+启用 MiniDock 后，在已启动且有窗口的应用图标上停留约 400ms，会在 Dock 上方显示各窗口的缩略图和标题。鼠标可移入浮层点击目标窗口，已最小化的窗口会恢复。离开图标和浮层约 350ms 后关闭预览，点击其他位置、拖动、暂停或切换桌面也会关闭。Dock 位于屏幕左侧或右侧时，浮层显示在屏幕内侧。
 
 1.1.1（22）修复了预览点击的时序问题。按住预览按钮期间保持浮层并暂停列表替换，抬起后异步等待窗口恢复和应用激活，再设置选中窗口的焦点。最多在 1.5 秒内发出三次焦点请求，并回读目标应用的前台状态与同一窗口的焦点。新的点击、键盘操作、滚动、暂停或设置变更会取消尚未完成的请求。诊断中的 `preview-focus confirmed` 表示已回读确认，单次 `raise=0` 仅表示系统接受了置前请求。
 
@@ -60,7 +62,7 @@ open build/MiniToggle.app
 
 1.1.4（25）通过窗口创建、焦点变化通知和每 750ms 的前台窗口引用采样，保留跨桌面窗口的 AX 元素。点击全屏预览时先定位并选定该窗口，再激活应用，按所属进程和窗口角色验证对象，并回读确认焦点。窗口关闭时移除相应引用，暂停或退出时清空。首次启用时，如果全屏窗口已位于其他桌面且应用未暴露其元素，请先切到该全屏桌面停留约两秒以建立引用，再测试预览切换。
 
-第一次使用请到设置 → 通用 → 屏幕录制授权，按系统提示重启 MiniToggle，再从菜单栏启用。未授权时显示窗口标题和权限提示，仍可点击切换。缩略图通过公开 ScreenCaptureKit 获取，在浮层显示期间约每秒刷新，离开后停止。macOS 13 使用短时 SCStream 获取首帧，macOS 14+ 使用 SCScreenshotManager。
+第一次使用请到设置 → 通用 → 屏幕录制授权，按系统提示重启 MiniDock，再从菜单栏启用。未授权时显示窗口标题和权限提示，仍可点击切换。缩略图通过公开 ScreenCaptureKit 获取，在浮层显示期间约每秒刷新，离开后停止。macOS 13 使用短时 SCStream 获取首帧，macOS 14+ 使用 SCScreenshotManager。
 
 窗口列表以应用公开的辅助功能窗口属性为主。1.1.3（24）在已获屏幕录制授权时，通过 ScreenCaptureKit 补充 VidHub 等应用未向 AX 暴露的全屏播放器窗口。点击补充条目后先激活应用，再定位真实窗口并确认焦点，全屏桌面切换最多等待三秒。浮层允许加入其他应用的全屏桌面，临时读取为空时继续刷新。截图服务临时失败时回退短时流式取帧，系统仍拒绝捕获的后台窗口会显示占位图。缩略图通过双向唯一的窗口几何、标题或全屏尺寸匹配，兼容桌面切换动画中的坐标偏移。已最小化、受保护、未向系统暴露窗口或无法唯一匹配的窗口可能显示应用图标及“预览不可用”提示。可切换范围取决于应用公开的 AX 窗口列表和系统桌面切换行为，跨桌面、Stage Manager 和第三方非标准窗口仍需实际验证。
 
@@ -73,7 +75,7 @@ open build/MiniToggle.app
 另有显式的只读诊断参数 `--audit-windows`：查询已运行的 Safari、ChatGPT、QQ 和 TextEdit 最多三个窗口的公开 AX 资格属性并打印到标准输出，不激活应用、不改变窗口、不读标题/内容。可通过 LaunchServices 运行以使用 app 自身授权身份（`--stdout` 的文件是显式导出的诊断）：
 
 ```sh
-open -n -g -W --stdout "$PWD/build/window-audit.txt" --stderr "$PWD/build/window-audit-errors.txt" build/MiniToggle.app --args --audit-windows
+open -n -g -W --stdout "$PWD/build/window-audit.txt" --stderr "$PWD/build/window-audit-errors.txt" build/MiniDock.app --args --audit-windows
 ```
 
 ## 有意保守的行为和限制
