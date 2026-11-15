@@ -39,6 +39,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self.updateStatusItem()
             self.settingsWindow.updateEngineStatus()
         }
+        let arguments = CommandLine.arguments
+        if let index = arguments.firstIndex(of: "--update-ready"), arguments.indices.contains(index + 1) {
+            let marker = URL(fileURLWithPath: arguments[index + 1]).standardizedFileURL
+            let temporary = FileManager.default.temporaryDirectory.standardizedFileURL.path
+            if marker.lastPathComponent == "ready", marker.path.hasPrefix(temporary),
+               marker.deletingLastPathComponent().lastPathComponent.hasPrefix("MiniDock-update-") {
+                try? Data().write(to: marker)
+            }
+        }
+        if arguments.contains("--update-failed") {
+            let alert = NSAlert()
+            alert.messageText = "更新未完成，已恢复旧版本"
+            alert.informativeText = "新版本未能正常启动。请从设置重新检查更新，或从 GitHub 下载安装。"
+            alert.runModal()
+        }
         if enableAtLaunch { enable() }
         if CommandLine.arguments.contains("--settings") { showSettings() }
     }
@@ -78,9 +93,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         control.view = row
         menu.addItem(control)
         menu.addItem(.separator())
-        add("关于 MiniDock", #selector(showAbout))
         add("设置", #selector(showSettings))
-        add("复制日志", #selector(copyLogs))
+        add("关于", #selector(showAbout))
         add("退出", #selector(quit))
     }
     @discardableResult func add(_ title: String, _ action: Selector?) -> NSMenuItem {
@@ -121,7 +135,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         alert.messageText = "无法启用 MiniDock"
         alert.informativeText = needsAccessibility
             ? "请在系统设置的“隐私与安全性 → 辅助功能”中允许 MiniDock，然后返回菜单重新启用。重新构建后可能需要重新授权。"
-            : "\(engine.status)。请检查系统权限后重新启用，详细原因可从菜单栏复制日志查看。"
+            : "\(engine.status)。请检查系统权限后重新启用，详细原因可从设置复制日志查看。"
         alert.addButton(withTitle: "打开系统设置")
         alert.addButton(withTitle: "稍后")
         alert.beginSheetModal(for: window) { [weak self] response in

@@ -4,7 +4,7 @@ Swift / AppKit 菜单栏工具，用公开的 Quartz 鼠标事件监听和 Acces
 
 ## 安装
 
-从 [GitHub Release](https://github.com/Royce-80457/MiniDock/releases/tag/v1.1.5) 下载 `MiniDock-1.1.5-universal.dmg`，打开后将 MiniDock 拖入 Applications。退出旧实例，再从“应用程序”启动，打开设置授予辅助功能权限，最后打开菜单“启用”开关。
+从 [GitHub Release](https://github.com/Royce-80457/MiniDock/releases/tag/v1.1.6) 下载 `MiniDock-1.1.6-universal.dmg`，打开后将 MiniDock 拖入 Applications。退出旧实例，再从“应用程序”启动，打开设置授予辅助功能权限，最后打开菜单“启用”开关。
 
 本次安装包使用 Apple Development 开发签名，尚无 Developer ID 分发签名及 Apple 公证，Gatekeeper 可能阻止启动。仅信任来源时按 [Apple 官方说明](https://support.apple.com/102445)在隐私与安全性中手动允许；不要关闭系统安全机制。也可自行从源码构建。详见 [安装说明](docs/INSTALL.zh-CN.md)。
 
@@ -108,3 +108,9 @@ open -n -g -W --stdout "$PWD/build/window-audit.txt" --stderr "$PWD/build/window
 ## 制作安装镜像
 
 Release 构建后执行 `./scripts/package.sh`，输出 DMG 和 `SHA256SUMS.txt` 到 `build/release/`。镜像包含签名 app、Applications 快捷入口及安装说明；脚本不会替你生成 Developer ID 证书、公证或上传。已有同名产物时停止，避免覆盖发布文件。
+
+## 应用内更新
+
+设置 → 更新中可检查 GitHub 最新正式 Release，对比当前版本后选择“更新并重启”。私有仓库需要在“GitHub 令牌…”中保存具有本仓库 Contents 读取权限的令牌，令牌存入 macOS 钥匙串。
+
+更新流程校验 GitHub 提供的 SHA256、Bundle ID、版本及开发者签名，在当前应用所在目录替换安装，启动确认后清理旧应用备份和下载临时文件。同目录下已退出且签名匹配的旧名称应用也会清理。若替换或启动失败，会恢复旧版。当前应用目录须可写，从 DMG 运行时需先安装到 Applications。

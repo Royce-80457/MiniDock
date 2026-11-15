@@ -36,3 +36,16 @@ final class ClickPolicyTests: XCTestCase {
                             modified: modified, dragged: dragged, stable: stable)
     }
 }
+
+final class ReleaseVersionTests: XCTestCase {
+    func testNumericOrdering() {
+        XCTAssertLessThan(ReleaseVersion("1.9")!, ReleaseVersion("v1.10.0")!)
+        XCTAssertEqual(ReleaseVersion("v1.1.5"), ReleaseVersion("1.1.5.0"))
+        XCTAssertLessThan(ReleaseVersion("1.1.5")!, ReleaseVersion("1.1.6")!)
+    }
+    func testRejectsMalformedAndPrereleaseVersions() {
+        for text in ["", "v", "1..2", "1.2-beta", "-1.2", "1.2.3.4.5", "999999999999999999999999"] {
+            XCTAssertNil(ReleaseVersion(text), text)
+        }
+    }
+}

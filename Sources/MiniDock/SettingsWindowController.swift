@@ -6,6 +6,10 @@ import UniformTypeIdentifiers
 final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSTabViewDelegate, NSTableViewDataSource, NSTableViewDelegate {
     private weak var appDelegate: AppDelegate?
     private let tabs = NSTabView()
+    private let updater = UpdateController()
+    private let updateStatus = NSTextField(wrappingLabelWithString: "")
+    private let checkUpdate = NSButton(title: "检查更新", target: nil, action: nil)
+    private let installUpdate = NSButton(title: "更新并重启", target: nil, action: nil)
     private var general: NSStackView!
     private let engineStatus = NSTextField(wrappingLabelWithString: "")
     private let permissionStatus = NSTextField(labelWithString: "")
@@ -74,7 +78,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSTa
         capture.widthAnchor.constraint(equalTo: captureContent.widthAnchor).isActive = true
         general.addArrangedSubview(settingsCard("权限", rows: [permissionContent, captureContent, input]))
 
-        let logs = settingsRow("运行日志", detail: "保留本次运行最近 200 条，可从菜单栏复制。", trailing: button("清空日志", #selector(clearLogs)))
+        let logs = settingsRow("运行日志", detail: "保留本次运行最近 200 条。", trailing: button("清空日志", #selector(clearLogs)))
+        logs.addArrangedSubview(button("复制日志", #selector(copyLogs)))
         logs.toolTip = "退出后清除，不记录窗口标题或按键内容。"
         general.addArrangedSubview(settingsCard("诊断", rows: [logs]))
         for section in general.arrangedSubviews {
@@ -82,6 +87,21 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSTa
         }
         runtime.toolTip = "无法确认窗口状态时会停止增强，可复制日志查看原因并重试。"
         permissionActions.toolTip = "在系统设置中授权后返回，状态会自动刷新，也可手动刷新。"
+
+        let updates = page("更新")
+        checkUpdate.target = self
+        checkUpdate.action = #selector(checkForUpdates)
+        installUpdate.target = self
+        installUpdate.action = #selector(installLatest)
+        updateStatus.preferredMaxLayoutWidth = 510
+        updates.addArrangedSubview(settingsCard("软件更新", rows: [
+            settingsRow("当前版本", detail: appDelegate.versionDescription, trailing: checkUpdate),
+            updateStatus,
+            row([installUpdate, button("GitHub 令牌…", #selector(configureToken))])
+        ]))
+        updates.arrangedSubviews.first?.widthAnchor.constraint(equalTo: updates.widthAnchor).isActive = true
+        updater.changed = { [weak self] in self?.refreshUpdateControls() }
+        refreshUpdateControls()
 
         let exclusions = page("排除应用")
         exclusions.addArrangedSubview(row([heading("排除应用"),
@@ -151,7 +171,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSTa
     private func resizeWindow() {
         guard let window, general != nil, listHeight != nil else { return }
         let exclusionTab = tabs.selectedTabViewItem?.identifier as? String == "排除应用"
-        let height = exclusionTab ? listHeight.constant + 94 : max(260, general.fittingSize.height + 72)
+        let updateTab = tabs.selectedTabViewItem?.identifier as? String == "更新"
+        let height = updateTab ? 320 : (exclusionTab ? listHeight.constant + 94 : max(260, general.fittingSize.height + 72))
         guard abs(window.contentLayoutRect.height - height) > 1 else { return }
         let top = window.frame.maxY
         window.setContentSize(NSSize(width: 600, height: height))
@@ -311,6 +332,41 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSTa
         let ids = Set(table.selectedRowIndexes.compactMap { apps.indices.contains($0) ? apps[$0].id : nil })
         appDelegate?.removeExclusions(ids); reloadApps()
     }
+    private func refreshUpdateControls() {
+        updateStatus.stringValue = updater.status
+        checkUpdate.isEnabled = !updater.busy
+        installUpdate.isEnabled = updater.canInstall
+    }
+    @objc private func checkForUpdates() { updater.check() }
+    @objc private func installLatest() {
+        guard let window else { return }
+        let alert = NSAlert()
+        alert.messageText = "安装更新并重启 MiniDock？"
+        alert.informativeText = "将覆盖当前运行的应用，完成后清理旧应用和下载临时文件。"
+        alert.addButton(withTitle: "更新并重启")
+        alert.addButton(withTitle: "取消")
+        alert.beginSheetModal(for: window) { [weak self] response in
+            if response == .alertFirstButtonReturn { self?.updater.install() }
+        }
+    }
+    @objc private func configureToken() {
+        guard let window, !updater.busy else { return }
+        let alert = NSAlert()
+        alert.messageText = "GitHub 访问令牌"
+        alert.informativeText = "私有仓库需要具有 Royce-80457/MiniDock 的 Contents 读取权限的令牌。令牌保存在 macOS 钥匙串。留空保存可移除已存令牌。"
+        let field = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 360, height: 24))
+        field.placeholderString = "GitHub personal access token"
+        alert.accessoryView = field
+        alert.addButton(withTitle: "保存")
+        alert.addButton(withTitle: "取消")
+        alert.beginSheetModal(for: window) { [weak self] response in
+            guard response == .alertFirstButtonReturn, let self else { return }
+            do { try self.updater.saveToken(field.stringValue); self.updater.check() }
+            catch { self.updateStatus.stringValue = error.localizedDescription }
+            field.stringValue = ""
+        }
+    }
+    @objc private func copyLogs() { appDelegate?.copyLogs() }
     @objc private func clearLogs() { appDelegate?.clearLogs() }
     @objc private func refresh() { refreshControls() }
     @objc private func toggleLogin() { appDelegate?.toggleLogin(); refreshControls() }
